@@ -1,5 +1,6 @@
 #include <SDL2/SDL.h>
 #include <stdbool.h>
+#include <math.h>
 
 #define MAP_W 16
 #define MAP_H 9
