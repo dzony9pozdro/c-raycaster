@@ -15,14 +15,14 @@ typedef struct {
   Vec2 pos;
   Vec2 dir;
   Vec2 vel;
-  double deg;
+  double rad;
 } Camera;
 
 Camera camera_default(void) {
   Camera c = {.pos = {.x = 300, .y = 300},
               .dir = {.x = 1, .y = 0},
               .vel = {.x = 0, .y = 0},
-              .deg = 0};
+              .rad = 0};
   return c;
 }
 
@@ -63,25 +63,21 @@ void cast_ray(SDL_Renderer *renderer, Camera *cam) {
   double y_from_x, x_from_y;
 
   if (cam->dir.x == 0) {
-    y_from_x = pos_y_bound_rel_y;
-  } else {
-    y_from_x = pos_x_bound_rel_x * (cam->dir.y / cam->dir.x);
+    cam->dir.x = 0.00001;
   }
   if (cam->dir.y == 0) {
-    x_from_y = pos_x_bound_rel_x;
-  } else {
-    x_from_y = pos_y_bound_rel_y * (cam->dir.x / cam->dir.y);
+    cam->dir.y = 0.00001;
   }
 
   SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
 
   // vertical
   //  first pos x vertical intersection vertices
-  Vec2 posxv1 = {cam->pos.x + pos_x_bound_rel_x, cam->pos.y + y_from_x};
+  Vec2 posxv1 = {cam->pos.x + pos_x_bound_rel_x, cam->pos.y + pos_x_bound_rel_x * (cam->dir.y / cam->dir.x)};
   SDL_Rect pos_x_fc = {posxv1.x, posxv1.y, 10, 10};
 
   // first neg x vertical intersection vertices
-  Vec2 negxv1 = {cam->pos.x + neg_x_bound_rel_x, cam->pos.y - y_from_x};
+  Vec2 negxv1 = {cam->pos.x + neg_x_bound_rel_x, cam->pos.y + neg_x_bound_rel_x * (cam->dir.y/cam->dir.x)};
   SDL_Rect neg_x_fc = {negxv1.x, negxv1.y, 10, 10};
 
   SDL_SetRenderDrawColor(renderer, 255, 0, 255, 255);
@@ -92,11 +88,11 @@ void cast_ray(SDL_Renderer *renderer, Camera *cam) {
   // horizontal
 
   //  first pos y vertical intersection vertices
-  Vec2 posyv1 = {cam->pos.x + x_from_y, cam->pos.y + pos_y_bound_rel_y};
+  Vec2 posyv1 = {cam->pos.x + pos_y_bound_rel_y * (cam->dir.x / cam->dir.y), cam->pos.y + pos_y_bound_rel_y};
   SDL_Rect pos_y_fc = {posyv1.x, posyv1.y, 10, 10};
 
   //  first neg y vertical intersection vertices
-  Vec2 negyv1 = {cam->pos.x - x_from_y, cam->pos.y + neg_y_bound_rel_y};
+  Vec2 negyv1 = {cam->pos.x + neg_y_bound_rel_y * (cam->dir.x/cam->dir.y), cam->pos.y + neg_y_bound_rel_y};
   SDL_Rect neg_y_fc = {negyv1.x, negyv1.y, 10, 10};
 
   SDL_SetRenderDrawColor(renderer, 0, 255, 255, 255);
@@ -147,9 +143,9 @@ void draw_player(SDL_Renderer *renderer, Camera *cam) {
 }
 
 void turn(double direction, Camera *cam) {
-  cam->deg += direction;
-  cam->dir.x = cos(cam->deg);
-  cam->dir.y = sin(cam->deg);
+  cam->rad += direction;
+  cam->dir.x = cos(cam->rad);
+  cam->dir.y = sin(cam->rad);
 }
 
 int main(int argc, char *argv[]) {
