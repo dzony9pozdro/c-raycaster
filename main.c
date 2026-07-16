@@ -70,15 +70,14 @@ void cast_ray(SDL_Renderer *renderer, Camera *cam) {
 
   // TODO:
   // make the ray check all intersections, not just the first possible one
-  // next_check.x += CELL, next_check.y += CELL * dir.y/dir.x  -ish?
-  // cast all of the rays - probably call this function in a loop?? maybe bring the loop
-  // into this function, and extract the calculations into a helper
-  // draw pillars of some const / distance height -
-  // distance is easy math probably also vary color based on distance?
-  // need to draw a map for this, array makes it
-  // easy, then any coordinate%CELL == 0 is a hit? ish?
-  // refactor this abomination of an if statement VVVVVVVVVVVVVVVVVVVV
- 
+  // next_check.x += CELL, next_check.y += CELL * dir.y/dir.x, and the inverse for the
+  // other line direction. -ish? cast all of the rays - probably call this function in a
+  // loop?? maybe bring the loop into this function, and extract the calculations into a
+  // helper draw pillars of some const / distance height - distance is easy math probably
+  // also vary color based on distance? need to draw a map for this, array makes it easy,
+  // then any coordinate%CELL == 0 is a hit? ish? refactor this abomination of an if
+  // statement VVVVVVVVVVVVVVVVVVVV
+
   if (deg <= M_PI_2) {
     // ++
     v_hit = (Vec2){cam->pos.x + pos_dx, cam->pos.y + pos_dx * (cam->dir.y / cam->dir.x)};
