@@ -21,7 +21,7 @@ typedef struct {
 Camera camera_default(void) {
   Camera c = {.pos = {.x = 300, .y = 300},
               .dir = {.x = 1, .y = 0},
-              .vel = {.x = 0, .y = 0},
+              .vel = {.x = 0.01, .y = 0.01},
               .rad = 0};
   return c;
 }
@@ -34,6 +34,7 @@ void draw_map(SDL_Renderer *renderer, int *debug) {
   };
   int px = 0, py = 0;
 
+  SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
   for (int w = 0; w < MAP_W; w++) {
     for (int h = 0; h < MAP_H; h++) {
       px = CELL * w;
@@ -54,68 +55,68 @@ void draw_map(SDL_Renderer *renderer, int *debug) {
 
 void cast_ray(SDL_Renderer *renderer, Camera *cam) {
   // adjacent
-  double pos_x_bound_rel_x = CELL - fmod(cam->pos.x, CELL);
-  double pos_y_bound_rel_y = CELL - fmod(cam->pos.y, CELL);
+  double pos_dx = CELL - fmod(cam->pos.x, CELL);
+  double pos_dy = CELL - fmod(cam->pos.y, CELL);
+  double neg_dx = -fmod(cam->pos.x, CELL);
+  double neg_dy = -fmod(cam->pos.y, CELL);
+  
+  double deg = fmod(cam->rad, 2 * M_PI);
+  printf("%.3f PI\n", deg / M_PI);
 
-  double neg_x_bound_rel_x = -fmod(cam->pos.x, CELL);
-  double neg_y_bound_rel_y = -fmod(cam->pos.y, CELL);
+  Vec2 v_hit;
+  Vec2 h_hit;
 
-  double y_from_x, x_from_y;
+  if (deg < 0) deg += 2 * M_PI;
+  if (deg <= M_PI_2) {
+    // ++ 
+    v_hit = (Vec2){cam->pos.x + pos_dx, 
+                    cam->pos.y + pos_dx * (cam->dir.y / cam->dir.x)};
+    h_hit = (Vec2){cam->pos.x + pos_dy * (cam->dir.x / cam->dir.y),
+                    cam->pos.y + pos_dy};
 
-  if (cam->dir.x == 0) {
-    cam->dir.x = 0.00001;
+  } else if (deg > M_PI_2 && deg <= M_PI) {
+    // -+
+    v_hit = (Vec2){cam->pos.x + neg_dx,
+                    cam->pos.y + neg_dx* (cam->dir.y / cam->dir.x)};
+    h_hit = (Vec2){cam->pos.x + pos_dy* (cam->dir.x / cam->dir.y),
+                    cam->pos.y + pos_dy};
+
+  } else if (deg > M_PI && deg <= 3 * M_PI_2) {
+    // --
+    v_hit = (Vec2){cam->pos.x + neg_dx,
+                    cam->pos.y + neg_dx* (cam->dir.y / cam->dir.x)};
+    h_hit = (Vec2){cam->pos.x + neg_dy* (cam->dir.x / cam->dir.y),
+                    cam->pos.y + neg_dy};
+
+  } else if (deg >= 3 * M_PI_2 && deg <= 2 * M_PI) {
+    // +-
+    v_hit = (Vec2){cam->pos.x + pos_dx,
+                    cam->pos.y + pos_dx* (cam->dir.y / cam->dir.x)};
+    h_hit = (Vec2){cam->pos.x + neg_dy* (cam->dir.x / cam->dir.y),
+                    cam->pos.y + neg_dy};
   }
-  if (cam->dir.y == 0) {
-    cam->dir.y = 0.00001;
-  }
 
-  SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-
-  // vertical
-  //  first pos x vertical intersection vertices
-  Vec2 posxv1 = {cam->pos.x + pos_x_bound_rel_x, cam->pos.y + pos_x_bound_rel_x * (cam->dir.y / cam->dir.x)};
-  SDL_Rect pos_x_fc = {posxv1.x, posxv1.y, 10, 10};
-
-  // first neg x vertical intersection vertices
-  Vec2 negxv1 = {cam->pos.x + neg_x_bound_rel_x, cam->pos.y + neg_x_bound_rel_x * (cam->dir.y/cam->dir.x)};
-  SDL_Rect neg_x_fc = {negxv1.x, negxv1.y, 10, 10};
-
-  SDL_SetRenderDrawColor(renderer, 255, 0, 255, 255);
-  SDL_RenderFillRect(renderer, &pos_x_fc);
-  SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-  SDL_RenderFillRect(renderer, &neg_x_fc);
-
-  // horizontal
-
-  //  first pos y vertical intersection vertices
-  Vec2 posyv1 = {cam->pos.x + pos_y_bound_rel_y * (cam->dir.x / cam->dir.y), cam->pos.y + pos_y_bound_rel_y};
-  SDL_Rect pos_y_fc = {posyv1.x, posyv1.y, 10, 10};
-
-  //  first neg y vertical intersection vertices
-  Vec2 negyv1 = {cam->pos.x + neg_y_bound_rel_y * (cam->dir.x/cam->dir.y), cam->pos.y + neg_y_bound_rel_y};
-  SDL_Rect neg_y_fc = {negyv1.x, negyv1.y, 10, 10};
-
+  SDL_Rect v = {h_hit.x, h_hit.y, 8, 8};
+  SDL_Rect h = {v_hit.x, v_hit.y, 8, 8};
   SDL_SetRenderDrawColor(renderer, 0, 255, 255, 255);
-  SDL_RenderFillRect(renderer, &pos_y_fc);
+  SDL_RenderFillRect(renderer, &h);
   SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
-  SDL_RenderFillRect(renderer, &neg_y_fc);
-  SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+  SDL_RenderFillRect(renderer, &v);
 
-  Vec2 check;
-  Vec2 interval;
-  Vec2 next_check = {.x = check.x + interval.x, .y = check.y + interval.y};
+  // Vec2 next_check = {.x = check.x + interval.x, .y = check.y + interval.y};
 
   SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
 }
-
-void draw_player(SDL_Renderer *renderer, Camera *cam) {
+void update_player(Camera *cam) {
   cam->pos.x += cam->vel.x;
   cam->pos.y += cam->vel.y;
 
-  double line_length = 280;
-
   cam->vel.x /= 2;
   cam->vel.y /= 2;
+}
+void draw_player(SDL_Renderer *renderer, Camera *cam) {
+  SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
+  double line_length = 280;
 
   SDL_Rect p = {cam->pos.x - CELL / 8.0, cam->pos.y - CELL / 8.0, CELL / 4, CELL / 4};
 
@@ -166,7 +167,7 @@ int main(int argc, char *argv[]) {
   Camera cam = camera_default();
 
   const Uint8 *keys = SDL_GetKeyboardState(NULL);
-  float acceleration = 11;
+  float acceleration = 10;
   while (running) {
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
@@ -187,22 +188,25 @@ int main(int argc, char *argv[]) {
     }
 
     if (keys[SDL_SCANCODE_J]) {
-      turn(-0.08, &cam);
+      turn(-0.02 * M_PI, &cam);
     }
 
     if (keys[SDL_SCANCODE_K]) {
-      turn(0.08, &cam);
+      turn(0.02 * M_PI, &cam);
     }
 
     SDL_SetRenderDrawColor(renderer, 30, 60, 120, 255);  // blue-ish
     SDL_RenderClear(renderer);
 
-    SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
     draw_map(renderer, &debug);
+    update_player(&cam);
+
     draw_player(renderer, &cam);
+
     cast_ray(renderer, &cam);
+
     SDL_RenderPresent(renderer);
-    SDL_Delay(16);  // ~16ms per frame ≈ 60fps
+    SDL_Delay(12);  // in ms
   }
 
   SDL_DestroyRenderer(renderer);
