@@ -3,8 +3,8 @@
 #include <stdatomic.h>
 #include <stdbool.h>
 
-#define MAP_W 12 / 3
-#define MAP_H 9 / 3
+#define MAP_W (12 / 3)
+#define MAP_H (9 / 3)
 #define CELL 200
 
 typedef struct {
