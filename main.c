@@ -3,8 +3,8 @@
 #include <stdatomic.h>
 #include <stdbool.h>
 
-#define MAP_W (12 / 3)
-#define MAP_H (9 / 3)
+#define MAP_W 4
+#define MAP_H 3
 #define CELL 200
 
 typedef struct {
@@ -21,16 +21,16 @@ typedef struct {
 Camera camera_default(void) {
   Camera c = {.pos = {.x = 300, .y = 300},
               .dir = {.x = 1, .y = 0},
-              .vel = {.x = 0.01, .y = 0.01},
+              .vel = {.x = 0, .y = 0},
               .rad = 0};
   return c;
 }
 
 void draw_map(SDL_Renderer *renderer, int *debug) {
   int map[MAP_H][MAP_W] = {
-      {1, 1, 1, 1},
-      {1, 0, 0, 0},
+      {0, 1, 0, 1},
       {1, 0, 1, 0},
+      {0, 1, 0, 1},
   };
   int px = 0, py = 0;
 
@@ -59,7 +59,7 @@ void cast_ray(SDL_Renderer *renderer, Camera *cam) {
   double pos_dy = CELL - fmod(cam->pos.y, CELL);
   double neg_dx = -fmod(cam->pos.x, CELL);
   double neg_dy = -fmod(cam->pos.y, CELL);
-  
+
   double deg = fmod(cam->rad, 2 * M_PI);
   printf("%.3f PI\n", deg / M_PI);
 
@@ -67,46 +67,50 @@ void cast_ray(SDL_Renderer *renderer, Camera *cam) {
   Vec2 h_hit;
 
   if (deg < 0) deg += 2 * M_PI;
+
+  // TODO:
+  // make the ray check all intersections, not just the first possible one
+  // next_check.x += CELL, next_check.y += CELL * dir.y/dir.x  -ish?
+  // cast all of the rays - probably call this function in a loop?? maybe bring the loop
+  // into this function, and extract the calculations into a helper
+  // draw pillars of some const / distance height -
+  // distance is easy math probably also vary color based on distance?
+  // need to draw a map for this, array makes it
+  // easy, then any coordinate%CELL == 0 is a hit? ish?
+  // refactor this abomination of an if statement VVVVVVVVVVVVVVVVVVVV
+ 
   if (deg <= M_PI_2) {
-    // ++ 
-    v_hit = (Vec2){cam->pos.x + pos_dx, 
-                    cam->pos.y + pos_dx * (cam->dir.y / cam->dir.x)};
-    h_hit = (Vec2){cam->pos.x + pos_dy * (cam->dir.x / cam->dir.y),
-                    cam->pos.y + pos_dy};
+    // ++
+    v_hit = (Vec2){cam->pos.x + pos_dx, cam->pos.y + pos_dx * (cam->dir.y / cam->dir.x)};
+    h_hit = (Vec2){cam->pos.x + pos_dy * (cam->dir.x / cam->dir.y), cam->pos.y + pos_dy};
 
   } else if (deg > M_PI_2 && deg <= M_PI) {
     // -+
-    v_hit = (Vec2){cam->pos.x + neg_dx,
-                    cam->pos.y + neg_dx* (cam->dir.y / cam->dir.x)};
-    h_hit = (Vec2){cam->pos.x + pos_dy* (cam->dir.x / cam->dir.y),
-                    cam->pos.y + pos_dy};
+    v_hit = (Vec2){cam->pos.x + neg_dx, cam->pos.y + neg_dx * (cam->dir.y / cam->dir.x)};
+    h_hit = (Vec2){cam->pos.x + pos_dy * (cam->dir.x / cam->dir.y), cam->pos.y + pos_dy};
 
   } else if (deg > M_PI && deg <= 3 * M_PI_2) {
     // --
-    v_hit = (Vec2){cam->pos.x + neg_dx,
-                    cam->pos.y + neg_dx* (cam->dir.y / cam->dir.x)};
-    h_hit = (Vec2){cam->pos.x + neg_dy* (cam->dir.x / cam->dir.y),
-                    cam->pos.y + neg_dy};
+    v_hit = (Vec2){cam->pos.x + neg_dx, cam->pos.y + neg_dx * (cam->dir.y / cam->dir.x)};
+    h_hit = (Vec2){cam->pos.x + neg_dy * (cam->dir.x / cam->dir.y), cam->pos.y + neg_dy};
 
   } else if (deg >= 3 * M_PI_2 && deg <= 2 * M_PI) {
     // +-
-    v_hit = (Vec2){cam->pos.x + pos_dx,
-                    cam->pos.y + pos_dx* (cam->dir.y / cam->dir.x)};
-    h_hit = (Vec2){cam->pos.x + neg_dy* (cam->dir.x / cam->dir.y),
-                    cam->pos.y + neg_dy};
+    v_hit = (Vec2){cam->pos.x + pos_dx, cam->pos.y + pos_dx * (cam->dir.y / cam->dir.x)};
+    h_hit = (Vec2){cam->pos.x + neg_dy * (cam->dir.x / cam->dir.y), cam->pos.y + neg_dy};
   }
 
   SDL_Rect v = {h_hit.x, h_hit.y, 8, 8};
   SDL_Rect h = {v_hit.x, v_hit.y, 8, 8};
-  SDL_SetRenderDrawColor(renderer, 0, 255, 255, 255);
+  SDL_SetRenderDrawColor(renderer, 255, 0, 255, 255);
   SDL_RenderFillRect(renderer, &h);
-  SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
   SDL_RenderFillRect(renderer, &v);
 
   // Vec2 next_check = {.x = check.x + interval.x, .y = check.y + interval.y};
 
   SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
 }
+
 void update_player(Camera *cam) {
   cam->pos.x += cam->vel.x;
   cam->pos.y += cam->vel.y;
