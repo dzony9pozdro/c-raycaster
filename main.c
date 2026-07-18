@@ -10,13 +10,23 @@
 typedef struct {
   double x, y;
 } Vec2;
-
+typedef struct {
+  Vec2 v, h;
+} Vec4;
 typedef struct {
   Vec2 pos;
   Vec2 dir;
   Vec2 vel;
   double rad;
 } Camera;
+
+// n_v_hit = (Vec2){v_hit.x + ndx, v_hit.y + ndx * (cam->dir.y / cam->dir.x)};
+// n_h_hit = (Vec2){h_hit.x + ndy * (cam->dir.x / cam->dir.y), h_hit.y + ndy};
+
+typedef struct {
+  Vec4 fc;
+  Vec4 checks;
+} Ray_params;
 
 Camera camera_default(void) {
   Camera c = {.pos = {.x = 300, .y = 300},
@@ -54,19 +64,45 @@ void draw_map(SDL_Renderer *renderer, int *debug) {
 }
 
 void cast_ray(SDL_Renderer *renderer, Camera *cam) {
-  // adjacent
-  double pos_dx = CELL - fmod(cam->pos.x, CELL);
-  double pos_dy = CELL - fmod(cam->pos.y, CELL);
-  double neg_dx = -fmod(cam->pos.x, CELL);
-  double neg_dy = -fmod(cam->pos.y, CELL);
+  // player distance from nearest boundary:
 
   double deg = fmod(cam->rad, 2 * M_PI);
-  printf("%.3f PI\n", deg / M_PI);
+  double dx, dy;
+  double ndx, ndy;
 
   Vec2 v_hit;
   Vec2 h_hit;
+  Vec2 n_v_hit, n_h_hit;
+
+  // vertical
+  if (cam->dir.x < 0) {
+    dx = -fmod(cam->pos.x, CELL);  // neg
+    ndx = -CELL;
+  } else {
+    dx = CELL - fmod(cam->pos.x, CELL);  // pos
+    ndx = CELL;
+  }
+
+  // horizontal
+  if (cam->dir.y < 0) {
+    dy = -fmod(cam->pos.y, CELL);  // neg
+    ndy = -CELL;
+  } else {
+    dy = CELL - fmod(cam->pos.y, CELL);  // pos
+    ndy = CELL;
+  }
+
+  printf("%.3f PI\n", deg / M_PI);
+
+  v_hit = (Vec2){cam->pos.x + dx, cam->pos.y + dx * (cam->dir.y / cam->dir.x)};
+  h_hit = (Vec2){cam->pos.x + dy * (cam->dir.x / cam->dir.y), cam->pos.y + dy};
 
   if (deg < 0) deg += 2 * M_PI;
+
+  // next_hit(first_hit);
+
+  n_v_hit = (Vec2){v_hit.x + ndx, v_hit.y + ndx * (cam->dir.y / cam->dir.x)};
+  n_h_hit = (Vec2){h_hit.x + ndy * (cam->dir.x / cam->dir.y), h_hit.y + ndy};
 
   // TODO:
   // make the ray check all intersections, not just the first possible one
@@ -75,36 +111,22 @@ void cast_ray(SDL_Renderer *renderer, Camera *cam) {
   // loop?? maybe bring the loop into this function, and extract the calculations into a
   // helper draw pillars of some const / distance height - distance is easy math probably
   // also vary color based on distance? need to draw a map for this, array makes it easy,
-  // then any coordinate%CELL == 0 is a hit? ish? refactor this abomination of an if
-  // statement VVVVVVVVVVVVVVVVVVVV
-
-  if (deg <= M_PI_2) {
-    // ++
-    v_hit = (Vec2){cam->pos.x + pos_dx, cam->pos.y + pos_dx * (cam->dir.y / cam->dir.x)};
-    h_hit = (Vec2){cam->pos.x + pos_dy * (cam->dir.x / cam->dir.y), cam->pos.y + pos_dy};
-
-  } else if (deg > M_PI_2 && deg <= M_PI) {
-    // -+
-    v_hit = (Vec2){cam->pos.x + neg_dx, cam->pos.y + neg_dx * (cam->dir.y / cam->dir.x)};
-    h_hit = (Vec2){cam->pos.x + pos_dy * (cam->dir.x / cam->dir.y), cam->pos.y + pos_dy};
-
-  } else if (deg > M_PI && deg <= 3 * M_PI_2) {
-    // --
-    v_hit = (Vec2){cam->pos.x + neg_dx, cam->pos.y + neg_dx * (cam->dir.y / cam->dir.x)};
-    h_hit = (Vec2){cam->pos.x + neg_dy * (cam->dir.x / cam->dir.y), cam->pos.y + neg_dy};
-
-  } else if (deg >= 3 * M_PI_2 && deg <= 2 * M_PI) {
-    // +-
-    v_hit = (Vec2){cam->pos.x + pos_dx, cam->pos.y + pos_dx * (cam->dir.y / cam->dir.x)};
-    h_hit = (Vec2){cam->pos.x + neg_dy * (cam->dir.x / cam->dir.y), cam->pos.y + neg_dy};
-  }
+  // then any coordinate%CELL == 0 is a hit? ish?
 
   SDL_Rect v = {h_hit.x, h_hit.y, 8, 8};
   SDL_Rect h = {v_hit.x, v_hit.y, 8, 8};
+
+  SDL_Rect nv = {n_h_hit.x, n_h_hit.y, 8, 8};
+  SDL_Rect nh = {n_v_hit.x, n_v_hit.y, 8, 8};
   SDL_SetRenderDrawColor(renderer, 255, 0, 255, 255);
   SDL_RenderFillRect(renderer, &h);
   SDL_RenderFillRect(renderer, &v);
 
+  SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
+  SDL_RenderFillRect(renderer, &nh);
+
+  SDL_SetRenderDrawColor(renderer, 0, 255, 255, 255);
+  SDL_RenderFillRect(renderer, &nv);
   // Vec2 next_check = {.x = check.x + interval.x, .y = check.y + interval.y};
 
   SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
