@@ -63,21 +63,21 @@ void first_check(SDL_Renderer *renderer, Camera *cam, Ray_params *ray) {
   double dx, dy;
 
   // vertical
-  if (cam->dir.x < 0) {
+  if (ray->dir.x < 0) {
     dx = -fmod(cam->pos.x, CELL);  // neg
   } else {
     dx = CELL - fmod(cam->pos.x, CELL);  // pos
   }
 
   // horizontal
-  if (cam->dir.y < 0) {
+  if (ray->dir.y < 0) {
     dy = -fmod(cam->pos.y, CELL);  // neg
   } else {
     dy = CELL - fmod(cam->pos.y, CELL);  // pos
   }
 
-  ray->v_hit = (Vec2){cam->pos.x + dx, cam->pos.y + dx * (cam->dir.y / cam->dir.x)};
-  ray->h_hit = (Vec2){cam->pos.x + dy * (cam->dir.x / cam->dir.y), cam->pos.y + dy};
+  ray->v_hit = (Vec2){cam->pos.x + dx, cam->pos.y + dx * (ray->dir.y / ray->dir.x)};
+  ray->h_hit = (Vec2){cam->pos.x + dy * (ray->dir.x / ray->dir.y), cam->pos.y + dy};
 
   SDL_Rect h = {ray->h_hit.x, ray->h_hit.y, 8, 8};
   SDL_Rect v = {ray->v_hit.x, ray->v_hit.y, 8, 8};
@@ -134,13 +134,21 @@ void cast_rays(SDL_Renderer *renderer, Camera *cam){
   double deg = fmod(cam->rad, 2 * M_PI);
 
   if (deg < 0) deg += 2 * M_PI;
-  printf("deg: %.3f\n", deg);
-  
-  for (int i = 0; i < 100; i++){
-    
+  // printf("deg: %.3f PI\n", deg/M_PI);
+
+  double step = 2.0/FOV;
+  double raydeg = deg - step * (FOV / 2.0);
+  for (int i = 0; i < FOV; i++){
+  if (i == 0){
+    printf("raydeg @0: %.3f\n", raydeg);
+  }
+  if (i == (FOV - 1)){
+    printf("raydeg @ max :  %.3f\n", raydeg);
+  }
+  cast_ray(renderer, cam, raydeg);
+    raydeg += step;
   }
 
-  cast_ray(renderer, cam, deg);
 
 }
 
