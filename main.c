@@ -41,17 +41,18 @@ Camera camera_default(void) {
   return c;
 }
 
-void draw_map(SDL_Renderer *renderer, int *debug) {
+void draw_map(SDL_Renderer *renderer, const int *debug) {
   idx walls[MAP_H * MAP_W];
   vert wall_coords[sizeof(walls) / sizeof(walls[0])];
-  int map[MAP_H][MAP_W] = {
-      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  static int map[MAP_H][MAP_W] = {
+      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+      {0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
   };
-  int px = 0, py = 0;
+  int px = 0;
+  int py = 0;
   SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
   int i = 0;
   for (int w = 0; w < MAP_W; w++) {
@@ -96,8 +97,9 @@ int is_wall(double x, double y) {
   return 0;
 }
 
-void first_check(SDL_Renderer *renderer, Camera *cam, Ray_params *ray, int *draw) {
-  double dx, dy;
+void first_check(SDL_Renderer *renderer, Camera *cam, Ray_params *ray, const int *draw) {
+  double dx;
+  double dy;
 
   // vertical
   if (ray->dir.x < 0) {
@@ -113,8 +115,8 @@ void first_check(SDL_Renderer *renderer, Camera *cam, Ray_params *ray, int *draw
     dy = CELL - fmod(cam->pos.y, CELL);  // pos
   }
 
-  ray->v_hit = (Vec2){cam->pos.x + dx, cam->pos.y + dx * (ray->dir.y / ray->dir.x)};
-  ray->h_hit = (Vec2){cam->pos.x + dy * (ray->dir.x / ray->dir.y), cam->pos.y + dy};
+  ray->v_hit = (Vec2){cam->pos.x + dx, cam->pos.y + (dx * (ray->dir.y / ray->dir.x))};
+  ray->h_hit = (Vec2){cam->pos.x + (dy * (ray->dir.x / ray->dir.y)), cam->pos.y + dy};
 
   // DEBUG: draw red box if
   //
@@ -135,8 +137,9 @@ void first_check(SDL_Renderer *renderer, Camera *cam, Ray_params *ray, int *draw
   //  SDL_Rect v = {ray->v_hit.x, ray->v_hit.y, 8, 8};
   //  }
 
-  SDL_Rect h = {ray->h_hit.x, ray->h_hit.y, 8, 8};
-  SDL_Rect v = {ray->v_hit.x, ray->v_hit.y, 8, 8};
+  SDL_Rect h = {(int)lround(ray->h_hit.x), (int)lround(ray->h_hit.y), 8, 8};
+
+  SDL_Rect v = {(int)lround(ray->v_hit.x), (int)lround(ray->v_hit.y), 8, 8};
 
   SDL_SetRenderDrawColor(renderer, 255, 255, 255, 200);
   if (*draw == 1) {
@@ -145,8 +148,9 @@ void first_check(SDL_Renderer *renderer, Camera *cam, Ray_params *ray, int *draw
   }
   SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
 }
-void next_checks(SDL_Renderer *renderer, Ray_params *ray, int *draw) {
-  double dx, dy;
+void next_checks(SDL_Renderer *renderer, Ray_params *ray, const int *draw) {
+  double dx;
+  double dy;
   if (ray->dir.x < 0) {
     dx = -CELL;
   } else {
@@ -159,14 +163,14 @@ void next_checks(SDL_Renderer *renderer, Ray_params *ray, int *draw) {
     dy = CELL;
   }
 
-  ray->v_hit = (Vec2){ray->v_hit.x + dx, ray->v_hit.y + dx * (ray->dir.y / ray->dir.x)};
-  ray->h_hit = (Vec2){ray->h_hit.x + dy * (ray->dir.x / ray->dir.y), ray->h_hit.y + dy};
+  ray->v_hit = (Vec2){ray->v_hit.x + dx, ray->v_hit.y + (dx * (ray->dir.y / ray->dir.x))};
+  ray->h_hit = (Vec2){ray->h_hit.x + (dy * (ray->dir.x / ray->dir.y)), ray->h_hit.y + dy};
 
   // printf(" %.2f, %.2f \n", ray->v_hit.x, ray->v_hit.y);
   // printf(" %.2f, %.2f \n", ray->h_hit.x, ray->h_hit.y);
 
-  SDL_Rect nh = {ray->h_hit.x, ray->h_hit.y, 8, 8};
-  SDL_Rect nv = {ray->v_hit.x, ray->v_hit.y, 8, 8};
+  SDL_Rect nh = {(int)lround(ray->h_hit.x), (int)lround(ray->h_hit.y), 8, 8};
+  SDL_Rect nv = {(int)lround(ray->v_hit.x), (int)lround(ray->v_hit.y), 8, 8};
 
   if (*draw == 1) {
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 200);
@@ -184,30 +188,29 @@ void cast_ray(SDL_Renderer *renderer, Camera *cam, double deg, int *draw) {
   ray.v_hit = (Vec2){ray.v_hit.x, ray.v_hit.y};
   ray.h_hit = (Vec2){ray.h_hit.x, ray.h_hit.y};
 
-  for (int i = 0; i < (MAP_W + MAP_W / 12); i++) {
+  for (int i = 0; i < (MAP_W + (MAP_W / 12)); i++) {
     next_checks(renderer, &ray, draw);
   }
 }
 void cast_rays(SDL_Renderer *renderer, Camera *cam) {
   double deg = fmod(cam->rad, 2 * M_PI);
 
-  if (deg < 0) deg += 2 * M_PI;
+  if (deg < 0) {
+    deg += 2 * M_PI;
+  }
 
   double step = 2.0 / FOV;
-  double raydeg = deg - step * (FOV / 2.0);
+  double raydeg = deg - (step * (FOV / 2.0));
   int draw;
   for (int i = 0; i < FOV; i++) {
-    if (i == 0) {
+    if (i == 0 || i == (FOV - 1)) {
       draw = 1;
     } else if (i == (FOV - 1)) {
       draw = 1;
       // printf("raydeg @ max :  %.3f\n", raydeg);
-    } else {
-      // draw = 0;
-      draw = 1;
+      cast_ray(renderer, cam, raydeg, &draw);
+      raydeg += step;
     }
-    cast_ray(renderer, cam, raydeg, &draw);
-    raydeg += step;
   }
 }
 
@@ -222,7 +225,7 @@ void draw_player(SDL_Renderer *renderer, Camera *cam) {
   SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
   double line_length = 150;
 
-  SDL_Rect p = {cam->pos.x - CELL / 8.0, cam->pos.y - CELL / 8.0, CELL / 4, CELL / 4};
+  SDL_Rect p = {(int)lround(cam->pos.x - (CELL / 8.0)), (int)lround(cam->pos.y - (CELL / 8.0)), (CELL / 4), (CELL / 4)};
 
   SDL_SetRenderDrawColor(renderer, 100, 100, 100, 190);
 
@@ -242,9 +245,9 @@ void draw_player(SDL_Renderer *renderer, Camera *cam) {
 
   // dir vector
   SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-  SDL_RenderDrawLine(renderer, cam->pos.x, cam->pos.y,
-                     cam->pos.x + cam->dir.x * line_length,
-                     cam->pos.y + cam->dir.y * line_length);
+  SDL_RenderDrawLine(renderer, (int)lround(cam->pos.x), (int)lround(cam->pos.y),
+                     (int)lround(cam->pos.x + (cam->dir.x * line_length)),
+                     (int)lround(cam->pos.y + (cam->dir.y * line_length)));
 }
 
 void turn(double direction, Camera *cam) {
@@ -275,7 +278,7 @@ int main(int argc, char *argv[]) {
   while (running) {
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
-      if (e.type == SDL_QUIT) running = false;
+      if (e.type == SDL_QUIT) {running = false;}
     }
 
     if (keys[SDL_SCANCODE_W] && cam.vel.y < 300) {
@@ -314,9 +317,9 @@ int main(int argc, char *argv[]) {
   }
 
   // TODO:
-  // helper draw pillars of some const / distance height - distance is easy math probably
-  // also vary color based on distance? need to draw a map for this, array makes it easy,
-  // then any coordinate%CELL == 0 is a hit? ish?
+  // helper draw pillars of some const / distance height - distance is easy math
+  // probably also vary color based on distance? need to draw a map for this, array
+  // makes it easy, then any coordinate%CELL == 0 is a hit? ish?
 
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
