@@ -10,9 +10,23 @@
 
 static SDL_Renderer *gr;
 
+static int map[MAP_H][MAP_W] = {
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0},  //
+    {0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+};
+
 typedef struct {
   double x, y;
 } Vec2;
+
+static Vec2 walls[MAP_H * MAP_W];
 
 typedef struct {
   Vec2 pos;
@@ -34,23 +48,30 @@ Camera camera_default(void) {
               .rad = 0};
   return c;
 }
-
-void draw_map(SDL_Renderer *renderer) {
-  static int map[MAP_H][MAP_W] = {
-      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-      {0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-      {0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-  };
-
+void draw_grid(void) {
   static int px = 0;
   static int py = 0;
 
+  for (int row = 0; row < MAP_H; row++) {
+    py = CELL * row;
+    SDL_FRect r = {0, (float)py, 30000, 1};
+    SDL_RenderFillRect(gr, &r);
+  }
+
+  for (int col = 0; col < MAP_W; col++) {
+    px = CELL * col;
+    SDL_FRect r = {(float)px, 0, 1, 300000};
+    SDL_RenderFillRect(gr, &r);
+  }
+}
+
+void draw_map(SDL_Renderer *renderer) {
+  static int px = 0;
+  static int py = 0;
+  static int i = 0;
+  for (int k = 0; k < (MAP_H * MAP_W); k++) {
+    walls[k] = (Vec2){-1, -1};
+  }
   SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
 
   for (int row = 0; row < MAP_H; row++) {
@@ -58,31 +79,29 @@ void draw_map(SDL_Renderer *renderer) {
       px = CELL * col;
       py = CELL * row;
       if (map[row][col] == 1) {
+        walls[i] = (Vec2){row, col};
         SDL_FRect r = {(float)px, (float)py, CELL, CELL};
         SDL_RenderFillRect(renderer, &r);
       }
     }
   }
 
-  for (int row = 0; row < MAP_H; row++) {
-
-      py = CELL * row;
-    SDL_FRect r = {0, (float)py, 30000, 1};
-    SDL_RenderFillRect(renderer, &r);
-  }
-
-  for (int col = 0; col < MAP_W; col++) {
-
-      px = CELL * col;
-    SDL_FRect r = {(float)px, 0, 1, 300000};
-    SDL_RenderFillRect(renderer, &r);
+  draw_grid();
+  for (int j = 0; j < (MAP_H * MAP_W); j++) {
+    if (walls[j].x != -1 && walls[j].y != -1) {
+      printf("%d, %d, \n", (int)walls[j].x, (int)walls[j].y);
+      printf("\n\n\n\n\n\n\n");
+    }
   }
 }
 
-int is_wall(double x, double y) {
-  if (fmod(x, CELL) == 0 || fmod(y, CELL) == 0) {
-    return 1;
-  }
+int is_wall(Vec2 hit) {
+  int row = 0;
+  int col = 0;
+
+  if (map[row][col]) {
+  };
+  // printf("%.1f, %.1f", hit.x, hit.y);
   return 0;
 }
 
@@ -140,6 +159,8 @@ void next_checks(SDL_Renderer *renderer, Ray_params *ray, const int *draw) {
                       ray->v_hit.y + (dx * (ray->dir.y / ray->dir.x))};
   ray->h_hit = (Vec2){ray->h_hit.x + (dy * (ray->dir.x / ray->dir.y)),
                       ray->h_hit.y + dy};
+  if (is_wall(ray->v_hit) == 1) {
+  }
 
   SDL_FRect nh = {(float)ray->h_hit.x, (float)ray->h_hit.y, 8, 8};
   SDL_FRect nv = {(float)ray->v_hit.x, (float)ray->v_hit.y, 8, 8};
@@ -263,6 +284,7 @@ int main(int argc, char *argv[]) {
     SDL_RenderClear(gr);
 
     draw_map(gr);
+
     update_player(&cam);
 
     draw_player(gr, &cam);
