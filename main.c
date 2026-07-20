@@ -88,6 +88,7 @@ void draw_map() {
   for (int j = 0; j < wall_count; j++) {
     printf("cell_X: %d, cell_Y %d\n", (int)walls[j].x, (int)walls[j].y);
   }
+  printf("wall_count: %d\n\n",wall_count);
   draw_grid();
 }
 void debug_draw(Vec2 hit) {
@@ -129,7 +130,7 @@ void delta(int depth, Ray_params *ray, double *dx, double *dy, Camera *cam) {
     }
   }
 }
-void first_check(Camera *cam, Ray_params *ray, int depth) {
+void check(Camera *cam, Ray_params *ray, int depth) {
   double dx;
   double dy;
   double slope = ray->dir.x / ray->dir.y;
@@ -155,7 +156,7 @@ void cast_ray(Camera *cam, double deg) {
   ray.dir = (Vec2){cos(deg), sin(deg)};
 
   for (int depth = 0; depth < (MAP_W + (MAP_W / 12)); depth++) {
-    first_check(cam, &ray, depth);
+    check(cam, &ray, depth);
   }
 }
 
