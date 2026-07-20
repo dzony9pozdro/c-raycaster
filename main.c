@@ -11,9 +11,9 @@
 static SDL_Renderer *gr;
 
 static int map[MAP_H][MAP_W] = {
+    {1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0},  //
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0},  //
-    {0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -68,31 +68,28 @@ void draw_grid(void) {
 void draw_map(SDL_Renderer *renderer) {
   static int px = 0;
   static int py = 0;
-  static int i = 0;
-  for (int k = 0; k < (MAP_H * MAP_W); k++) {
-    walls[k] = (Vec2){-1, -1};
-  }
-  SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
+  int i = 0;
 
-  for (int row = 0; row < MAP_H; row++) {
-    for (int col = 0; col < MAP_W; col++) {
-      px = CELL * col;
-      py = CELL * row;
-      if (map[row][col] == 1) {
-        walls[i] = (Vec2){row, col};
+  SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
+  int wall_count = 0;
+  for (int cell_y = 0; cell_y < MAP_H; cell_y++) {
+    for (int cell_x = 0; cell_x < MAP_W; cell_x++) {
+      px = CELL * cell_x;
+      py = CELL * cell_y;
+      if (map[cell_y][cell_x] == 1) {
+        walls[i++] = (Vec2){cell_x, cell_y};
+        wall_count += 1;
         SDL_FRect r = {(float)px, (float)py, CELL, CELL};
         SDL_RenderFillRect(renderer, &r);
       }
     }
   }
 
-  draw_grid();
-  for (int j = 0; j < (MAP_H * MAP_W); j++) {
-    if (walls[j].x != -1 && walls[j].y != -1) {
-      printf("%d, %d, \n", (int)walls[j].x, (int)walls[j].y);
-      printf("\n\n\n\n\n\n\n");
-    }
+  for (int j = 0; j < wall_count; j++) {
+    printf("cell_X: %d, cell_Y %d\n", (int)walls[j].x, (int)walls[j].y);
   }
+  printf("\ncount: %d\n", wall_count);
+  draw_grid();
 }
 
 void first_check(SDL_Renderer *renderer, Camera *cam, Ray_params *ray,
@@ -284,7 +281,6 @@ int main(int argc, char *argv[]) {
     SDL_RenderPresent(gr);
     SDL_Delay(12);  // in ms
   }
-
 
   SDL_DestroyRenderer(gr);
   SDL_DestroyWindow(window);
