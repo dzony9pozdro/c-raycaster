@@ -95,16 +95,6 @@ void draw_map(SDL_Renderer *renderer) {
   }
 }
 
-int is_wall(Vec2 hit) {
-  int row = 0;
-  int col = 0;
-
-  if (map[row][col]) {
-  };
-  // printf("%.1f, %.1f", hit.x, hit.y);
-  return 0;
-}
-
 void first_check(SDL_Renderer *renderer, Camera *cam, Ray_params *ray,
                  const int *draw) {
   double dx;
@@ -113,6 +103,7 @@ void first_check(SDL_Renderer *renderer, Camera *cam, Ray_params *ray,
   // vertical
   if (ray->dir.x < 0) {
     dx = -fmod(cam->pos.x, CELL);  // neg
+
   } else {
     dx = CELL - fmod(cam->pos.x, CELL);  // pos
   }
@@ -143,6 +134,7 @@ void first_check(SDL_Renderer *renderer, Camera *cam, Ray_params *ray,
 void next_checks(SDL_Renderer *renderer, Ray_params *ray, const int *draw) {
   double dx;
   double dy;
+
   if (ray->dir.x < 0) {
     dx = -CELL;
   } else {
@@ -159,8 +151,6 @@ void next_checks(SDL_Renderer *renderer, Ray_params *ray, const int *draw) {
                       ray->v_hit.y + (dx * (ray->dir.y / ray->dir.x))};
   ray->h_hit = (Vec2){ray->h_hit.x + (dy * (ray->dir.x / ray->dir.y)),
                       ray->h_hit.y + dy};
-  if (is_wall(ray->v_hit) == 1) {
-  }
 
   SDL_FRect nh = {(float)ray->h_hit.x, (float)ray->h_hit.y, 8, 8};
   SDL_FRect nv = {(float)ray->v_hit.x, (float)ray->v_hit.y, 8, 8};
@@ -295,10 +285,6 @@ int main(int argc, char *argv[]) {
     SDL_Delay(12);  // in ms
   }
 
-  // TODO:
-  // helper draw pillars of some const / distance height - distance is easy math
-  // probably also vary color based on distance? need to draw a map for this,
-  // array makes it easy, then any coordinate%CELL == 0 is a hit? ish?
 
   SDL_DestroyRenderer(gr);
   SDL_DestroyWindow(window);
