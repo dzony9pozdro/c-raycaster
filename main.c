@@ -36,8 +36,8 @@ typedef struct {
 } Camera;
 
 typedef struct {
-  Vec2 v_hit;
-  Vec2 h_hit;
+  Vec2 y_axis_hit;
+  Vec2 x_axis_hit;
   Vec2 dir;
 } Ray_params;
 
@@ -65,12 +65,12 @@ void draw_grid(void) {
   }
 }
 
-void draw_map(SDL_Renderer *renderer) {
+void draw_map() {
   static int px = 0;
   static int py = 0;
   int i = 0;
 
-  SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
+  SDL_SetRenderDrawColor(gr, 200, 200, 200, 255);
   int wall_count = 0;
   for (int cell_y = 0; cell_y < MAP_H; cell_y++) {
     for (int cell_x = 0; cell_x < MAP_W; cell_x++) {
@@ -80,7 +80,7 @@ void draw_map(SDL_Renderer *renderer) {
         walls[i++] = (Vec2){cell_x, cell_y};
         wall_count += 1;
         SDL_FRect r = {(float)px, (float)py, CELL, CELL};
-        SDL_RenderFillRect(renderer, &r);
+        SDL_RenderFillRect(gr, &r);
       }
     }
   }
@@ -91,16 +91,24 @@ void draw_map(SDL_Renderer *renderer) {
   printf("\ncount: %d\n", wall_count);
   draw_grid();
 }
-
-void first_check(SDL_Renderer *renderer, Camera *cam, Ray_params *ray,
-                 const int *draw) {
+void debug_draw(Vec2 hit) {
+  SDL_FRect h = {(float)hit.x, (float)hit.y, 8, 8};
+  SDL_SetRenderDrawColor(gr, 255, 255, 255, 200);
+  SDL_RenderFillRect(gr, &h);
+  SDL_SetRenderDrawColor(gr, 255, 0, 0, 255);
+}
+void first_check(Camera *cam, Ray_params *ray) {
   double dx;
   double dy;
+  double slope = ray->dir.x / ray->dir.y;
 
   // vertical
   if (ray->dir.x < 0) {
     dx = -fmod(cam->pos.x, CELL);  // neg
 
+  } else if (ray->dir.x == 0) {
+    //   TODO: (edge case) figure out what to do about this eventually
+    dx = 0;
   } else {
     dx = CELL - fmod(cam->pos.x, CELL);  // pos
   }
@@ -108,27 +116,21 @@ void first_check(SDL_Renderer *renderer, Camera *cam, Ray_params *ray,
   // horizontal
   if (ray->dir.y < 0) {
     dy = -fmod(cam->pos.y, CELL);  // neg
+  } else if (ray->dir.y == 0) {
+    //  TODO: (edge case) figure out what to do about this eventually
+    dy = 0;
   } else {
     dy = CELL - fmod(cam->pos.y, CELL);  // pos
   }
 
-  ray->v_hit =
-      (Vec2){cam->pos.x + dx, cam->pos.y + (dx * (ray->dir.y / ray->dir.x))};
-  ray->h_hit =
-      (Vec2){cam->pos.x + (dy * (ray->dir.x / ray->dir.y)), cam->pos.y + dy};
+  ray->y_axis_hit = (Vec2){cam->pos.x + dx, cam->pos.y + (dx / slope)};
+  ray->x_axis_hit = (Vec2){cam->pos.x + (dy * slope), cam->pos.y + dy};
 
-  SDL_FRect h = {(float)ray->h_hit.x, (float)ray->h_hit.y, 8, 8};
-  SDL_FRect v = {(float)ray->v_hit.x, (float)ray->v_hit.y, 8, 8};
-
-  SDL_SetRenderDrawColor(renderer, 255, 255, 255, 200);
-  if (*draw == 1) {
-    SDL_RenderFillRect(renderer, &h);
-    SDL_RenderFillRect(renderer, &v);
-  }
-  SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+  debug_draw(ray->x_axis_hit);
+  debug_draw(ray->y_axis_hit);
 }
 
-void next_checks(SDL_Renderer *renderer, Ray_params *ray, const int *draw) {
+void next_checks(Ray_params *ray) {
   double dx;
   double dy;
 
@@ -144,45 +146,38 @@ void next_checks(SDL_Renderer *renderer, Ray_params *ray, const int *draw) {
     dy = CELL;
   }
 
-  ray->v_hit = (Vec2){ray->v_hit.x + dx,
-                      ray->v_hit.y + (dx * (ray->dir.y / ray->dir.x))};
-  ray->h_hit = (Vec2){ray->h_hit.x + (dy * (ray->dir.x / ray->dir.y)),
-                      ray->h_hit.y + dy};
-
-  SDL_FRect nh = {(float)ray->h_hit.x, (float)ray->h_hit.y, 8, 8};
-  SDL_FRect nv = {(float)ray->v_hit.x, (float)ray->v_hit.y, 8, 8};
-
-  if (*draw == 1) {
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 200);
-    SDL_RenderFillRect(renderer, &nh);
-
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 200);
-    SDL_RenderFillRect(renderer, &nv);
-  }
+  ray->y_axis_hit =
+      (Vec2){ray->y_axis_hit.x + dx,
+             ray->y_axis_hit.y + (dx * (ray->dir.y / ray->dir.x))};
+  ray->x_axis_hit = (Vec2){ray->x_axis_hit.x + (dy * (ray->dir.x / ray->dir.y)),
+                           ray->x_axis_hit.y + dy};
+ 
+  debug_draw(ray->y_axis_hit);
+  debug_draw(ray->x_axis_hit);
 }
 
-void cast_ray(SDL_Renderer *renderer, Camera *cam, double deg, int *draw) {
+void cast_ray(Camera *cam, double deg) {
   Ray_params ray;
   ray.dir = (Vec2){cos(deg), sin(deg)};
-  first_check(renderer, cam, &ray, draw);
+  first_check(cam, &ray);
 
   for (int i = 0; i < (MAP_W + (MAP_W / 12)); i++) {
-    next_checks(renderer, &ray, draw);
+    next_checks(&ray);
   }
 }
 
-void cast_rays(SDL_Renderer *renderer, Camera *cam) {
+void cast_rays(Camera *cam) {
   double deg = fmod(cam->rad, 2 * M_PI);
 
   if (deg < 0) {
     deg += 2 * M_PI;
   }
 
-  double step = 2.0 / FOV;
+  double step = 1.0 / FOV;
   double raydeg = deg - (step * (FOV / 2.0));
-  int draw = 1;
+
   for (int i = 0; i < FOV; i++) {
-    cast_ray(renderer, cam, raydeg, &draw);
+    cast_ray(cam, raydeg);
     raydeg += step;
   }
 }
@@ -195,22 +190,22 @@ void update_player(Camera *cam) {
   cam->vel.y /= 2;
 }
 
-void draw_player(SDL_Renderer *renderer, Camera *cam) {
-  SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
+void draw_player(Camera *cam) {
+  SDL_SetRenderDrawColor(gr, 200, 200, 200, 255);
   double line_length = 150;
 
   SDL_FRect p = {(float)(cam->pos.x - (CELL / 8.0)),
                  (float)(cam->pos.y - (CELL / 8.0)), CELL / 4.0, CELL / 4.0};
 
-  SDL_SetRenderDrawColor(renderer, 100, 100, 100, 190);
+  SDL_SetRenderDrawColor(gr, 100, 100, 100, 190);
 
-  SDL_RenderFillRect(renderer, &p);
+  SDL_RenderFillRect(gr, &p);
 
-  SDL_SetRenderDrawColor(renderer, 255, 0, 255, 255);
+  SDL_SetRenderDrawColor(gr, 255, 0, 255, 255);
 
   // dir vector
-  SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-  SDL_RenderLine(renderer, (float)cam->pos.x, (float)cam->pos.y,
+  SDL_SetRenderDrawColor(gr, 0, 255, 0, 255);
+  SDL_RenderLine(gr, (float)cam->pos.x, (float)cam->pos.y,
                  (float)cam->pos.x + ((float)(cam->dir.x * line_length)),
                  (float)cam->pos.y + (float)(cam->dir.y * line_length));
 }
@@ -270,13 +265,13 @@ int main(int argc, char *argv[]) {
     SDL_SetRenderDrawColor(gr, 30, 60, 120, 255);  // blue-ish
     SDL_RenderClear(gr);
 
-    draw_map(gr);
+    draw_map();
 
     update_player(&cam);
 
-    draw_player(gr, &cam);
+    draw_player(&cam);
 
-    cast_rays(gr, &cam);
+    cast_rays(&cam);
 
     SDL_RenderPresent(gr);
     SDL_Delay(12);  // in ms
