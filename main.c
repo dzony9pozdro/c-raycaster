@@ -88,7 +88,6 @@ void draw_map() {
   for (int j = 0; j < wall_count; j++) {
     printf("cell_X: %d, cell_Y %d\n", (int)walls[j].x, (int)walls[j].y);
   }
-  printf("\ncount: %d\n", wall_count);
   draw_grid();
 }
 void debug_draw(Vec2 hit) {
@@ -97,72 +96,66 @@ void debug_draw(Vec2 hit) {
   SDL_RenderFillRect(gr, &h);
   SDL_SetRenderDrawColor(gr, 255, 0, 0, 255);
 }
-void first_check(Camera *cam, Ray_params *ray) {
+void delta(int depth, Ray_params *ray, double *dx, double *dy, Camera *cam) {
+  if (depth == 0) {
+    if (ray->dir.x < 0) {
+      *dx = -fmod(cam->pos.x, CELL);  // neg
+
+    } else if (ray->dir.x > 0) {
+      *dx = CELL - fmod(cam->pos.x, CELL);  // pos
+    } else {
+      //   TODO: (edge case) figure out what to do about this eventually
+      *dx = 0;
+    }
+
+    if (ray->dir.y < 0) {
+      *dy = -fmod(cam->pos.y, CELL);  // neg
+    } else if (ray->dir.y > 0) {
+      *dy = CELL - fmod(cam->pos.y, CELL);  // pos
+    } else {
+      //  TODO: (edge case) figure out what to do about this eventually
+      *dy = 0;
+    }
+  } else {
+    if (ray->dir.x < 0) {
+      *dx = -CELL;
+    } else {
+      *dx = CELL;
+    }
+    if (ray->dir.y < 0) {
+      *dy = -CELL;
+    } else {
+      *dy = CELL;
+    }
+  }
+}
+void first_check(Camera *cam, Ray_params *ray, int depth) {
   double dx;
   double dy;
   double slope = ray->dir.x / ray->dir.y;
 
-  // vertical
-  if (ray->dir.x < 0) {
-    dx = -fmod(cam->pos.x, CELL);  // neg
+  delta(depth, ray, &dx, &dy, cam);
 
-  } else if (ray->dir.x == 0) {
-    //   TODO: (edge case) figure out what to do about this eventually
-    dx = 0;
+  if (depth == 0) {
+    ray->y_axis_hit = (Vec2){cam->pos.x + dx, cam->pos.y + (dx / slope)};
+    ray->x_axis_hit = (Vec2){cam->pos.x + (dy * slope), cam->pos.y + dy};
   } else {
-    dx = CELL - fmod(cam->pos.x, CELL);  // pos
+    ray->y_axis_hit =
+        (Vec2){ray->y_axis_hit.x + dx, ray->y_axis_hit.y + (dx / slope)};
+    ray->x_axis_hit =
+        (Vec2){ray->x_axis_hit.x + (dy * slope), ray->x_axis_hit.y + dy};
   }
-
-  // horizontal
-  if (ray->dir.y < 0) {
-    dy = -fmod(cam->pos.y, CELL);  // neg
-  } else if (ray->dir.y == 0) {
-    //  TODO: (edge case) figure out what to do about this eventually
-    dy = 0;
-  } else {
-    dy = CELL - fmod(cam->pos.y, CELL);  // pos
-  }
-
-  ray->y_axis_hit = (Vec2){cam->pos.x + dx, cam->pos.y + (dx / slope)};
-  ray->x_axis_hit = (Vec2){cam->pos.x + (dy * slope), cam->pos.y + dy};
 
   debug_draw(ray->x_axis_hit);
   debug_draw(ray->y_axis_hit);
-}
-
-void next_checks(Ray_params *ray) {
-  double dx;
-  double dy;
-
-  if (ray->dir.x < 0) {
-    dx = -CELL;
-  } else {
-    dx = CELL;
-  }
-  // horizontal
-  if (ray->dir.y < 0) {
-    dy = -CELL;
-  } else {
-    dy = CELL;
-  }
-
-  ray->y_axis_hit =
-      (Vec2){ray->y_axis_hit.x + dx,
-             ray->y_axis_hit.y + (dx * (ray->dir.y / ray->dir.x))};
-  ray->x_axis_hit = (Vec2){ray->x_axis_hit.x + (dy * (ray->dir.x / ray->dir.y)),
-                           ray->x_axis_hit.y + dy};
- 
-  debug_draw(ray->y_axis_hit);
-  debug_draw(ray->x_axis_hit);
 }
 
 void cast_ray(Camera *cam, double deg) {
   Ray_params ray;
   ray.dir = (Vec2){cos(deg), sin(deg)};
-  first_check(cam, &ray);
 
-  for (int i = 0; i < (MAP_W + (MAP_W / 12)); i++) {
-    next_checks(&ray);
+  for (int depth = 0; depth < (MAP_W + (MAP_W / 12)); depth++) {
+    first_check(cam, &ray, depth);
   }
 }
 
