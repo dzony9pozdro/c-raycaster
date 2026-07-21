@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#define MAX_RAY_DEPTH 2
 #define FOV 100
 #define MAP_W 12
 #define MAP_H 9
@@ -71,24 +72,23 @@ void draw_map() {
   int i = 0;
 
   SDL_SetRenderDrawColor(gr, 200, 200, 200, 255);
-  int wall_count = 0;
+  // int wall_count = 0;
   for (int cell_y = 0; cell_y < MAP_H; cell_y++) {
     for (int cell_x = 0; cell_x < MAP_W; cell_x++) {
       px = CELL * cell_x;
       py = CELL * cell_y;
       if (map[cell_y][cell_x] == 1) {
         walls[i++] = (Vec2){cell_x, cell_y};
-        wall_count += 1;
+        // wall_count += 1;
         SDL_FRect r = {(float)px, (float)py, CELL, CELL};
         SDL_RenderFillRect(gr, &r);
       }
     }
   }
 
-  for (int j = 0; j < wall_count; j++) {
-    printf("cell_X: %d, cell_Y %d\n", (int)walls[j].x, (int)walls[j].y);
-  }
-  printf("wall_count: %d\n\n",wall_count);
+  // for (int j = 0; j < wall_count; j++) {
+  //   printf("cell_X: %d, cell_Y %d\n", (int)walls[j].x, (int)walls[j].y);
+  // }
   draw_grid();
 }
 void debug_draw(Vec2 hit) {
@@ -155,7 +155,7 @@ void cast_ray(Camera *cam, double deg) {
   Ray_params ray;
   ray.dir = (Vec2){cos(deg), sin(deg)};
 
-  for (int depth = 0; depth < (MAP_W + (MAP_W / 12)); depth++) {
+  for (int depth = 0; depth < MAX_RAY_DEPTH; depth++) {
     check(cam, &ray, depth);
   }
 }
@@ -167,12 +167,15 @@ void cast_rays(Camera *cam) {
     deg += 2 * M_PI;
   }
 
-  double step = 1.0 / FOV;
-  double raydeg = deg - (step * (FOV / 2.0));
+  // double step = 1.0 / FOV;
+  // double raydeg = deg - (step * (FOV / 2.0));
 
+  double raydeg = deg;
+
+  cast_ray(cam, raydeg);
   for (int i = 0; i < FOV; i++) {
-    cast_ray(cam, raydeg);
-    raydeg += step;
+    // cast_ray(cam, raydeg);
+    // raydeg += step;
   }
 }
 
@@ -226,7 +229,7 @@ int main(int argc, char *argv[]) {
   Camera cam = camera_default();
 
   const bool *keys = SDL_GetKeyboardState(NULL);
-  float acceleration = 10;
+  float acceleration = 5;
   while (running) {
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
