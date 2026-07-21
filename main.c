@@ -40,6 +40,7 @@ typedef struct {
   Vec2 y_axis_hit;
   Vec2 x_axis_hit;
   Vec2 dir;
+  Vec2 pos;
 } Ray_params;
 
 Camera camera_default(void) {
@@ -97,54 +98,61 @@ void debug_draw(Vec2 hit) {
   SDL_RenderFillRect(gr, &h);
   SDL_SetRenderDrawColor(gr, 255, 0, 0, 255);
 }
-void delta(int depth, Ray_params *ray, double *dx, double *dy, Camera *cam) {
+void diff(int depth, Ray_params *ray, Vec2 *delta) {
   if (depth == 0) {
     if (ray->dir.x < 0) {
-      *dx = -fmod(cam->pos.x, CELL);  // neg
+      delta->x = -fmod(ray->pos.x, CELL);  // neg
 
     } else if (ray->dir.x > 0) {
-      *dx = CELL - fmod(cam->pos.x, CELL);  // pos
+      delta->x = CELL - fmod(ray->pos.x, CELL);  // pos
     } else {
       //   TODO: (edge case) figure out what to do about this eventually
-      *dx = 0;
+      delta->x = 0;
     }
 
     if (ray->dir.y < 0) {
-      *dy = -fmod(cam->pos.y, CELL);  // neg
+      delta->y = -fmod(ray->pos.y, CELL);  // neg
     } else if (ray->dir.y > 0) {
-      *dy = CELL - fmod(cam->pos.y, CELL);  // pos
+      delta->y = CELL - fmod(ray->pos.y, CELL);  // pos
     } else {
       //  TODO: (edge case) figure out what to do about this eventually
-      *dy = 0;
+      delta->y = 0;
     }
   } else {
     if (ray->dir.x < 0) {
-      *dx = -CELL;
+      delta->x = -CELL;
     } else {
-      *dx = CELL;
+      delta->x = CELL;
     }
     if (ray->dir.y < 0) {
-      *dy = -CELL;
+      delta->y = -CELL;
     } else {
-      *dy = CELL;
+      delta->y = CELL;
     }
   }
 }
-void check(Camera *cam, Ray_params *ray, int depth) {
-  double dx;
-  double dy;
+void advance(char axis, Vec2 delta, Ray_params *ray) {
+  double slope = ray->dir.x/ray->dir.y;
+  if (axis == 'x') {
+    ray->x_axis_hit = (Vec2){ray->pos.x + (delta.y * slope), ray->pos.y + delta.y};
+  } else {
+    ray->y_axis_hit = (Vec2){ray->pos.x + delta.x, ray->pos.y + (delta.x / slope)};
+  }
+}
+void check(Ray_params *ray, int depth) {
+  Vec2 delta;
   double slope = ray->dir.x / ray->dir.y;
 
-  delta(depth, ray, &dx, &dy, cam);
+  diff(depth, ray, &delta);
 
   if (depth == 0) {
-    ray->y_axis_hit = (Vec2){cam->pos.x + dx, cam->pos.y + (dx / slope)};
-    ray->x_axis_hit = (Vec2){cam->pos.x + (dy * slope), cam->pos.y + dy};
+    advance('y', delta, ray);
+    advance('x', delta, ray);
   } else {
     ray->y_axis_hit =
-        (Vec2){ray->y_axis_hit.x + dx, ray->y_axis_hit.y + (dx / slope)};
+        (Vec2){ray->y_axis_hit.x + delta.x, ray->y_axis_hit.y + (delta.x / slope)};
     ray->x_axis_hit =
-        (Vec2){ray->x_axis_hit.x + (dy * slope), ray->x_axis_hit.y + dy};
+        (Vec2){ray->x_axis_hit.x + (delta.y * slope), ray->x_axis_hit.y + delta.y};
   }
 
   debug_draw(ray->x_axis_hit);
@@ -153,10 +161,11 @@ void check(Camera *cam, Ray_params *ray, int depth) {
 
 void cast_ray(Camera *cam, double deg) {
   Ray_params ray;
+  ray.pos = cam->pos;
   ray.dir = (Vec2){cos(deg), sin(deg)};
 
   for (int depth = 0; depth < MAX_RAY_DEPTH; depth++) {
-    check(cam, &ray, depth);
+    check(&ray, depth);
   }
 }
 
