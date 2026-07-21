@@ -3,8 +3,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#define MAX_RAY_DEPTH 2
-#define FOV 100
+#define MAX_RAY_DEPTH 10
+#define FOV 300
 #define MAP_W 12
 #define MAP_H 9
 #define CELL 100
@@ -41,6 +41,8 @@ typedef struct {
   Vec2 x_axis_hit;
   Vec2 dir;
   Vec2 pos;
+  double slope;
+  int depth;
 } Ray_params;
 
 Camera camera_default(void) {
@@ -98,8 +100,8 @@ void debug_draw(Vec2 hit) {
   SDL_RenderFillRect(gr, &h);
   SDL_SetRenderDrawColor(gr, 255, 0, 0, 255);
 }
-void diff(int depth, Ray_params *ray, Vec2 *delta) {
-  if (depth == 0) {
+void diff(Ray_params *ray, Vec2 *delta) {
+  if (ray->depth == 0) {
     if (ray->dir.x < 0) {
       delta->x = -fmod(ray->pos.x, CELL);  // neg
 
@@ -131,29 +133,32 @@ void diff(int depth, Ray_params *ray, Vec2 *delta) {
     }
   }
 }
-void advance(char axis, Vec2 delta, Ray_params *ray) {
-  double slope = ray->dir.x/ray->dir.y;
-  if (axis == 'x') {
-    ray->x_axis_hit = (Vec2){ray->pos.x + (delta.y * slope), ray->pos.y + delta.y};
+void advance_x(Vec2 delta, Ray_params *ray) {
+  if (ray->depth == 0) {
+    ray->x_axis_hit =
+        (Vec2){ray->pos.x + (delta.y * ray->slope), ray->pos.y + delta.y};
   } else {
-    ray->y_axis_hit = (Vec2){ray->pos.x + delta.x, ray->pos.y + (delta.x / slope)};
+    ray->x_axis_hit = (Vec2){ray->x_axis_hit.x + (delta.y * ray->slope),
+                             ray->x_axis_hit.y + delta.y};
   }
 }
-void check(Ray_params *ray, int depth) {
-  Vec2 delta;
-  double slope = ray->dir.x / ray->dir.y;
 
-  diff(depth, ray, &delta);
-
-  if (depth == 0) {
-    advance('y', delta, ray);
-    advance('x', delta, ray);
-  } else {
+void advance_y(Vec2 delta, Ray_params *ray) {
+  if (ray->depth == 0) {
     ray->y_axis_hit =
-        (Vec2){ray->y_axis_hit.x + delta.x, ray->y_axis_hit.y + (delta.x / slope)};
-    ray->x_axis_hit =
-        (Vec2){ray->x_axis_hit.x + (delta.y * slope), ray->x_axis_hit.y + delta.y};
+        (Vec2){ray->pos.x + delta.x, ray->pos.y + (delta.x / ray->slope)};
+  } else {
+    ray->y_axis_hit = (Vec2){ray->y_axis_hit.x + delta.x,
+                             ray->y_axis_hit.y + (delta.x / ray->slope)};
   }
+}
+void check(Ray_params *ray) {
+  Vec2 delta;
+
+  diff(ray, &delta);
+
+  advance_x(delta, ray);
+  advance_y(delta, ray);
 
   debug_draw(ray->x_axis_hit);
   debug_draw(ray->y_axis_hit);
@@ -163,9 +168,11 @@ void cast_ray(Camera *cam, double deg) {
   Ray_params ray;
   ray.pos = cam->pos;
   ray.dir = (Vec2){cos(deg), sin(deg)};
+  ray.slope = ray.dir.x / ray.dir.y;
 
   for (int depth = 0; depth < MAX_RAY_DEPTH; depth++) {
-    check(&ray, depth);
+    ray.depth = depth;
+    check(&ray);
   }
 }
 
@@ -176,15 +183,15 @@ void cast_rays(Camera *cam) {
     deg += 2 * M_PI;
   }
 
-  // double step = 1.0 / FOV;
-  // double raydeg = deg - (step * (FOV / 2.0));
+  double step = 1.0 / FOV;
+  double raydeg = deg - (step * (FOV / 2.0));
 
-  double raydeg = deg;
+  // double raydeg = deg;
 
-  cast_ray(cam, raydeg);
+  // cast_ray(cam, raydeg);
   for (int i = 0; i < FOV; i++) {
-    // cast_ray(cam, raydeg);
-    // raydeg += step;
+    cast_ray(cam, raydeg);
+    raydeg += step;
   }
 }
 
