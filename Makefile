@@ -7,7 +7,7 @@ ray: main.c
 	$(CC) $(CFLAGS) $(LDFLAGS) main.c $(LDLIBS) -o $@
 
 run: ray
-		MallocNanoZone=0 ./ray
+		./ray
 
 clean:
 	rm -f ray
