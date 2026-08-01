@@ -22,6 +22,19 @@ static int map[MAP_H][MAP_W] = {
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 };
+typedef struct {
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+  uint8_t a;
+} color;
+
+static color red = {255, 0, 0, 200};
+static color blue = {0, 0, 255, 200};
+// static color magenta = {0, 0, 255, 200};
+// static color yellow = {0, 0, 255, 200};
+// static color white = {255, 255, 255, 200};
+
 
 typedef struct {
   double x, y;
@@ -94,11 +107,11 @@ void draw_map() {
   // }
   draw_grid();
 }
-void debug_draw(Vec2 hit) {
+void debug_draw(Vec2 hit, color col) {
+
   SDL_FRect h = {(float)hit.x, (float)hit.y, 8, 8};
-  SDL_SetRenderDrawColor(gr, 255, 255, 255, 200);
+  SDL_SetRenderDrawColor(gr, col.r, col.g, col.b, col.a);
   SDL_RenderFillRect(gr, &h);
-  SDL_SetRenderDrawColor(gr, 255, 0, 0, 255);
 }
 void diff(Ray_params *ray, Vec2 *delta) {
   if (ray->depth == 0) {
@@ -160,8 +173,9 @@ void check(Ray_params *ray) {
   advance_x(delta, ray);
   advance_y(delta, ray);
 
-  debug_draw(ray->x_axis_hit);
-  debug_draw(ray->y_axis_hit);
+  debug_draw(ray->x_axis_hit, red);
+  debug_draw(ray->y_axis_hit, blue);
+   
 }
 
 void cast_ray(Camera *cam, double deg) {
