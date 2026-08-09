@@ -140,7 +140,7 @@ static void get_walls() {
     }
   }
 
-  printf("\n");
+  // printf("\n");
 }
 static int wall_collision(Ray *ray, enum axis axis) {
   int cell_x;
@@ -163,27 +163,19 @@ static int wall_collision(Ray *ray, enum axis axis) {
       cell_y = (int)(ray->pos.y / CELL);
     }
   }
-  
-  if (cell_x > MAP_W - 1){
-    cell_x = MAP_W - 1;
+
+  if (cell_x >= MAP_W || cell_y >= MAP_H || cell_x < 0 || cell_y < 0) {
+    return -1;
   }
-  if (cell_y > MAP_H - 1){
-    cell_y = MAP_H - 1;
-  }
-  if (cell_x < 0){
-    cell_x = 0;
-  }
-  if (cell_y < 0){
-    cell_y = 0;
-  }
+
   // printf("cell_x: %d, cell_y: %d\n", cell_x, cell_y);
 
-  if (map[cell_y][cell_x] == 1){
-    printf("hit\n");
+  if (map[cell_y][cell_x] == 1) {
+    // printf("hit\n");
     ray->seeking = 0;
-    printf("%d, %d\n", cell_x, cell_y);
+    // printf("%d, %d\n", cell_x, cell_y);
   }
-  printf("-\n");
+ // printf("-\n");
 
   return 0;
 }
@@ -268,9 +260,10 @@ static void advance_ray(Ray *ray) {
 static void cast_ray(Camera *cam, double deg) {
   Ray ray = init_ray(cam, deg);
   for (int depth = 0; depth < MAX_RAY_DEPTH; depth++) {
-    if (ray.seeking){
-    advance_ray(&ray);
+    if (!ray.seeking) {
+      break;
     }
+    advance_ray(&ray);
   }
 }
 
@@ -335,10 +328,10 @@ static void handle_input(Input *input) {
   const bool *keys = SDL_GetKeyboardState(NULL);
 
   if (keys[SDL_SCANCODE_W]) {
-    input->ay -= acceleration;
+    input->ay += acceleration;
   }
   if (keys[SDL_SCANCODE_S]) {
-    input->ay += acceleration;
+    input->ay -= acceleration;
   }
   if (keys[SDL_SCANCODE_A]) {
     input->ax -= acceleration;
@@ -403,8 +396,11 @@ int main(int argc, char *argv[]) {
         turn(input.turn_dir, &cam);
       }
 
-      cam.vel.x += input.ax;
-      cam.vel.y += input.ay;
+      cam.vel.x += (input.ay * cam.dir.x) + (input.ax * -cam.dir.y);
+      cam.vel.y += (input.ay * cam.dir.y) + (input.ax * cam.dir.x);
+
+      // cam.vel.x += input.ax;
+      // cam.vel.y += input.ay;
 
       update_player(&cam);
       accumulator -= TICK_NS;
