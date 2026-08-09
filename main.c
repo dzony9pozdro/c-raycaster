@@ -161,6 +161,11 @@ Ray init_ray(Camera *cam, double radian_raydeg) {
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 double get_delta_from_pos(const double pos, const int sign) {
+ 
+  if (pos == 0){
+    return sign * CELL;
+  } 
+
   if (sign == -1) {
     return -pos;
   }
@@ -169,6 +174,7 @@ double get_delta_from_pos(const double pos, const int sign) {
   }
   return 0;
 }
+
 Vec2 get_closer_delta(Ray *ray) {
   double x = ray->relative_pos.x;
   double y = ray->relative_pos.y;
