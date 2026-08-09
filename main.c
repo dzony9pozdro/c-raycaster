@@ -5,9 +5,9 @@
 #define SCREEN_HEIGHT 900
 #define SCREEN_WIDTH 1200
 #define MAX_RAY_DEPTH 15
-#define FOV 95
-#define MAP_W 12
-#define MAP_H 9
+#define FOV 80
+#define MAP_W 120
+#define MAP_H 90
 #define CELL 100
 
 #define TARGET_FPS 60
@@ -33,7 +33,7 @@ typedef struct {
   uint8_t a;
 } color;
 
-static int g_atan_correction = 0;
+static int g_atan_correction = 1;
 static int g_debug = 0;
 enum axis { X = 0, Y = 1 };
 
@@ -89,6 +89,7 @@ typedef struct {
   double deg;
   double perp;
   double dist;
+  enum axis axis;
 } Ray;
 
 static Camera camera_default(void) {
@@ -179,6 +180,7 @@ static void wall_collision(Ray *ray, enum axis axis, Camera *cam) {
   if (map[cell_y][cell_x] == 1) {
     // printf("hit\n");
     ray->seeking = 0;
+    ray->axis = axis;
     double xsq = (ray->pos.x - cam->pos.x) * (ray->pos.x - cam->pos.x);
     double ysq = (ray->pos.y - cam->pos.y) * (ray->pos.y - cam->pos.y);
     double hsq = (xsq + ysq);
@@ -278,7 +280,13 @@ static void draw_column(Ray *ray, float x, float w) {
   float y = horizon - (float)(h / 2.0);
 
   SDL_FRect col = {x, y, w, h};
-  SDL_SetRenderDrawColor(gr, colors.red.r, colors.red.g, colors.red.b, 255);
+  if (ray->axis == X){
+  SDL_SetRenderDrawColor(gr, colors.white.r - 65, colors.white.g - 65, colors.white.b - 65, 255);
+  } else {
+
+  SDL_SetRenderDrawColor(gr, colors.white.r - 80, colors.white.g - 80, colors.white.b - 80, 255);
+  }
+
   SDL_RenderFillRect(gr, &col);
 }
 
