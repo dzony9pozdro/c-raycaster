@@ -2,9 +2,10 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
-
-#define MAX_RAY_DEPTH 5
-#define FOV 80
+#define SCREEN_HEIGHT 900
+#define SCREEN_WIDTH 1200
+#define MAX_RAY_DEPTH 15
+#define FOV 95
 #define MAP_W 12
 #define MAP_H 9
 #define CELL 100
@@ -15,15 +16,15 @@
 static SDL_Renderer *gr;
 
 static int map[MAP_H][MAP_W] = {
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},  //
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},  //
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 };
 typedef struct {
   uint8_t r;
@@ -85,6 +86,7 @@ typedef struct {
   Vec2 relative_pos;
   int seeking;
   double deg;
+  double perp;
 } Ray;
 
 static Camera camera_default(void) {
@@ -143,7 +145,7 @@ static void get_walls() {
 
   // printf("\n");
 }
-static double wall_collision(Ray *ray, enum axis axis, Camera *cam) {
+static void wall_collision(Ray *ray, enum axis axis, Camera *cam) {
   int cell_x;
   int cell_y;
   double dist = 0;
@@ -168,7 +170,7 @@ static double wall_collision(Ray *ray, enum axis axis, Camera *cam) {
   }
 
   if (cell_x >= MAP_W || cell_y >= MAP_H || cell_x < 0 || cell_y < 0) {
-    return -1;
+    return;
   }
 
   // printf("cell_x: %d, cell_y: %d\n", cell_x, cell_y);
@@ -176,15 +178,14 @@ static double wall_collision(Ray *ray, enum axis axis, Camera *cam) {
     // printf("hit\n");
     ray->seeking = 0;
     double xsq = (ray->pos.x - cam->pos.x) * (ray->pos.x - cam->pos.x);
-    double ysq = (ray ->pos.y - cam->pos.y) * (ray ->pos.y - cam->pos.y);
+    double ysq = (ray->pos.y - cam->pos.y) * (ray->pos.y - cam->pos.y);
     double hsq = (xsq + ysq);
     dist = sqrt(hsq);
     perp = dist * cos(ray->deg - cam->deg);
     // printf("%d, %d\n", cell_x, cell_y);
   }
   // printf("-\n");
-
-  return perp;
+  ray->perp = perp;
 }
 static void debug_draw(Vec2 hit, color col) {
   SDL_FRect h = {(float)hit.x - 4, (float)hit.y - 4, 8, 8};
@@ -253,23 +254,36 @@ static Hit get_closer_hit(Ray *ray) {
 }
 
 static void advance_ray(Ray *ray, Camera *cam) {
-  Vec2 delta = get_closer_hit(ray).delta;
-  enum axis axis = get_closer_hit(ray).axis;
+  Hit closer_hit = get_closer_hit(ray);
+
+  Vec2 delta = closer_hit.delta;
+  enum axis axis = closer_hit.axis;
 
   ray->pos = find_next_intersection(delta, ray);
   wall_collision(ray, axis, cam);
 
-  debug_draw(ray->pos, colors.red);
+  if (g_debug == 1) {
+    debug_draw(ray->pos, colors.red);
+  }
 
   ray->relative_pos.x = fmod(ray->pos.x, CELL);
   ray->relative_pos.y = fmod(ray->pos.y, CELL);
 }
+static void draw_column(Ray *ray, float x, float w) {
+  float horizon = SCREEN_HEIGHT / 2.0;
+  float h = (float)((CELL * SCREEN_HEIGHT) / ray->perp);
+  float y = horizon - (float)(h / 2.0);
 
-static void cast_ray(Camera *cam, double deg) {
+  SDL_FRect col = {x, y, w, h};
+  SDL_SetRenderDrawColor(gr, colors.red.r, colors.red.g, colors.red.b, 255);
+  SDL_RenderFillRect(gr, &col);
+}
+
+static void cast_ray(Camera *cam, double deg, const int ray_idx) {
   Ray ray = init_ray(cam, deg);
-
   for (int depth = 0; depth < MAX_RAY_DEPTH; depth++) {
     if (!ray.seeking) {
+      draw_column(&ray, (float)ray_idx, 1.0);
       break;
     }
     advance_ray(&ray, cam);
@@ -278,19 +292,22 @@ static void cast_ray(Camera *cam, double deg) {
 
 static void cast_rays(Camera *cam) {
   if (g_debug == 1) {
-    cast_ray(cam, cam->deg);
+    cast_ray(cam, cam->deg, 1);
     return;
   }
 
   double radian_FOV = (FOV / 360.0) * 2 * M_PI;
   int ray_count;
-  double radian_step = 0.001;
+
+  double radian_step = radian_FOV / SCREEN_WIDTH;
+  ray_count = SCREEN_WIDTH;
+
   ray_count = (int)(radian_FOV / radian_step);
 
   double radian_raydeg = cam->deg - (radian_FOV / 2.0);
 
   for (int i = 0; i < ray_count; i++) {
-    cast_ray(cam, radian_raydeg);
+    cast_ray(cam, radian_raydeg, i);
     radian_raydeg += radian_step;
   }
 }
@@ -366,8 +383,7 @@ int main(int argc, char *argv[]) {
   (void)argv;
 
   SDL_Init(SDL_INIT_VIDEO);
-  SDL_Window *window =
-      SDL_CreateWindow("raycaster", MAP_W * CELL, MAP_H * CELL, 0);
+  SDL_Window *window = SDL_CreateWindow("raycaster", 1200, 900, 0);
   gr = SDL_CreateRenderer(window, NULL);
   bool running = true;
   Camera cam = camera_default();
@@ -417,9 +433,10 @@ int main(int argc, char *argv[]) {
 
     SDL_SetRenderDrawColor(gr, 30, 60, 120, 255);
     SDL_RenderClear(gr);
-
-    draw_map();
-    draw_player(&cam);
+    if (g_debug == 1) {
+      draw_map();
+      draw_player(&cam);
+    }
     cast_rays(&cam);
 
     SDL_RenderPresent(gr);
