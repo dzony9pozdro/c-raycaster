@@ -1,7 +1,7 @@
 #include <SDL3/SDL.h>
-#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <math.h>
 
 #define MAX_RAY_DEPTH 10
 #define FOV 300
