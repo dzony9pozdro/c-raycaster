@@ -33,6 +33,7 @@ typedef struct {
   uint8_t a;
 } color;
 
+static int g_atan_correction = 0;
 static int g_debug = 0;
 enum axis { X = 0, Y = 1 };
 
@@ -87,6 +88,7 @@ typedef struct {
   int seeking;
   double deg;
   double perp;
+  double dist;
 } Ray;
 
 static Camera camera_default(void) {
@@ -185,6 +187,7 @@ static void wall_collision(Ray *ray, enum axis axis, Camera *cam) {
     // printf("%d, %d\n", cell_x, cell_y);
   }
   // printf("-\n");
+  ray->dist = dist;
   ray->perp = perp;
 }
 static void debug_draw(Vec2 hit, color col) {
@@ -304,12 +307,24 @@ static void cast_rays(Camera *cam) {
 
   ray_count = (int)(radian_FOV / radian_step);
 
-  double radian_raydeg = cam->deg - (radian_FOV / 2.0);
+  double radian_raydeg = 0;
+  if (g_atan_correction == 0){
+  radian_raydeg = cam->deg - (radian_FOV / 2.0);
+  }
+  double camx = 0;
 
   for (int i = 0; i < ray_count; i++) {
+
+    if (g_atan_correction == 1) {
+      camx = (2.0 * i / (double)SCREEN_WIDTH) - 1.0;
+      radian_raydeg = cam->deg + atan(camx * tan(radian_FOV / 2.0));
+    }
     cast_ray(cam, radian_raydeg, i);
     radian_raydeg += radian_step;
   }
+
+
+
 }
 
 static void update_player(Camera *cam) {
