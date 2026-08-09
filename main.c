@@ -9,17 +9,17 @@
 #define MAP_H 9
 #define CELL 100
 
-#define TARGET_FPS 150
+#define TARGET_FPS 60
 #define TICK_HZ 60
 
 static SDL_Renderer *gr;
 
 static int map[MAP_H][MAP_W] = {
-    {1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0},  //
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},  //
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0},
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -33,7 +33,7 @@ typedef struct {
 } color;
 
 static int g_debug = 0;
-enum axis { X, Y };
+enum axis { X = 0, Y = 1 };
 
 [[maybe_unused]] static const struct {
   color red;
@@ -63,6 +63,7 @@ typedef struct {
 typedef struct {
   Vec2 delta;
   double dist;
+  enum axis axis;
 } Hit;
 
 static Vec2 walls[MAP_H * MAP_W];
@@ -82,6 +83,7 @@ typedef struct {
   double slope;
   int depth;
   Vec2 relative_pos;
+  int seeking;
 } Ray;
 
 static Camera camera_default(void) {
@@ -109,33 +111,84 @@ static void draw_grid(void) {
 }
 
 static void draw_map() {
-  static int px = 0;
-  static int py = 0;
-  int i = 0;
+  int px = 0;
+  int py = 0;
 
   SDL_SetRenderDrawColor(gr, 200, 200, 200, 255);
-  // int wall_count = 0;
   for (int cell_y = 0; cell_y < MAP_H; cell_y++) {
     for (int cell_x = 0; cell_x < MAP_W; cell_x++) {
       px = CELL * cell_x;
       py = CELL * cell_y;
       if (map[cell_y][cell_x] == 1) {
-        walls[i++] = (Vec2){cell_x, cell_y};
-        // wall_count += 1;
         SDL_FRect r = {(float)px, (float)py, CELL, CELL};
         SDL_RenderFillRect(gr, &r);
       }
     }
   }
 
-  // for (int j = 0; j < wall_count; j++) {
-  //   printf("cell_X: %d, cell_Y %d\n", (int)walls[j].x, (int)walls[j].y);
-  // }
   draw_grid();
 }
+static int wall_count = 0;
+static void get_walls() {
+  int i = 0;
+  for (int cell_y = 0; cell_y < MAP_H; cell_y++) {
+    for (int cell_x = 0; cell_x < MAP_W; cell_x++) {
+      if (map[cell_y][cell_x] == 1) {
+        walls[i++] = (Vec2){cell_x, cell_y};
+        wall_count += 1;
+      }
+    }
+  }
 
+  printf("\n");
+}
+static int wall_collision(Ray *ray, enum axis axis) {
+  int cell_x;
+  int cell_y;
+
+  if (axis == X) {
+    // check x axis wall hits
+    cell_y = (int)(ray->pos.y / CELL);
+    if (ray->dir.x < 0) {
+      cell_x = (int)(ray->pos.x / CELL) - 1;
+    } else {
+      cell_x = (int)(ray->pos.x / CELL);
+    }
+  } else {
+    // check y axis wall hits
+    cell_x = (int)(ray->pos.x / CELL);
+    if (ray->dir.y < 0) {
+      cell_y = (int)(ray->pos.y / CELL) - 1;
+    } else {
+      cell_y = (int)(ray->pos.y / CELL);
+    }
+  }
+  
+  if (cell_x > MAP_W - 1){
+    cell_x = MAP_W - 1;
+  }
+  if (cell_y > MAP_H - 1){
+    cell_y = MAP_H - 1;
+  }
+  if (cell_x < 0){
+    cell_x = 0;
+  }
+  if (cell_y < 0){
+    cell_y = 0;
+  }
+  // printf("cell_x: %d, cell_y: %d\n", cell_x, cell_y);
+
+  if (map[cell_y][cell_x] == 1){
+    printf("hit\n");
+    ray->seeking = 0;
+    printf("%d, %d\n", cell_x, cell_y);
+  }
+  printf("-\n");
+
+  return 0;
+}
 static void debug_draw(Vec2 hit, color col) {
-  SDL_FRect h = {(float)hit.x, (float)hit.y, 8, 8};
+  SDL_FRect h = {(float)hit.x - 4, (float)hit.y - 4, 8, 8};
   SDL_SetRenderDrawColor(gr, col.r, col.g, col.b, col.a);
   SDL_RenderFillRect(gr, &h);
 }
@@ -148,12 +201,12 @@ static Vec2 find_next_intersection(Vec2 delta, Ray *ray) {
 
 static Hit hit_from_dy(double dy, Ray *ray) {
   double dx = dy / ray->slope;
-  return (Hit){(Vec2){dx, dy}, (dx * dx) + (dy * dy)};
+  return (Hit){(Vec2){dx, dy}, (dx * dx) + (dy * dy), Y};
 }
 
 static Hit hit_from_dx(double dx, Ray *ray) {
   double dy = dx * ray->slope;
-  return (Hit){(Vec2){dx, dy}, (dx * dx) + (dy * dy)};
+  return (Hit){(Vec2){dx, dy}, (dx * dx) + (dy * dy), X};
 }
 static Ray init_ray(Camera *cam, double radian_raydeg) {
   Ray ray;
@@ -163,6 +216,7 @@ static Ray init_ray(Camera *cam, double radian_raydeg) {
   ray.slope = ray.dir.y / ray.dir.x;  // tan(deg)
   ray.depth = 0;
   ray.relative_pos = cam->relative_pos;
+  ray.seeking = 1;
 
   return ray;
 }
@@ -182,7 +236,7 @@ static double get_delta_from_pos(const double pos, const int sign) {
   return 0;
 }
 
-static Vec2 get_closer_delta(Ray *ray) {
+static Hit get_closer_hit(Ray *ray) {
   double x = ray->relative_pos.x;
   double y = ray->relative_pos.y;
   double throwaway_dx;
@@ -195,14 +249,15 @@ static Vec2 get_closer_delta(Ray *ray) {
   Hit closer_hit =
       (fabs(hit_f_dx.dist) < fabs(hit_f_dy.dist)) ? hit_f_dx : hit_f_dy;
 
-  Vec2 delta = closer_hit.delta;
-  return delta;
+  return closer_hit;
 }
 
 static void advance_ray(Ray *ray) {
-  Vec2 delta = get_closer_delta(ray);
+  Vec2 delta = get_closer_hit(ray).delta;
+  enum axis axis = get_closer_hit(ray).axis;
 
   ray->pos = find_next_intersection(delta, ray);
+  wall_collision(ray, axis);
 
   debug_draw(ray->pos, colors.red);
 
@@ -212,9 +267,10 @@ static void advance_ray(Ray *ray) {
 
 static void cast_ray(Camera *cam, double deg) {
   Ray ray = init_ray(cam, deg);
-
   for (int depth = 0; depth < MAX_RAY_DEPTH; depth++) {
+    if (ray.seeking){
     advance_ray(&ray);
+    }
   }
 }
 
@@ -268,8 +324,7 @@ static void draw_player(Camera *cam) {
                  (float)cam->pos.y + (float)(cam->dir.y * line_length));
 }
 
-static void handle_input(Input *input){
-
+static void handle_input(Input *input) {
   input->turn_dir = 0.0;
   input->ax = 0.0;
   input->ay = 0.0;
@@ -279,26 +334,24 @@ static void handle_input(Input *input){
 
   const bool *keys = SDL_GetKeyboardState(NULL);
 
-    if (keys[SDL_SCANCODE_W]) {
-      input->ay -= acceleration;
-    }
-    if (keys[SDL_SCANCODE_S]) {
-      input->ay += acceleration;
-    }
-    if (keys[SDL_SCANCODE_A]) {
-      input->ax -= acceleration;
-    }
-    if (keys[SDL_SCANCODE_D]) {
-      input->ax += acceleration;
-    }
-    if (keys[SDL_SCANCODE_J]) {
-      input->turn_dir -= turn_rate;
-    }
-    if (keys[SDL_SCANCODE_K]) {
-      input->turn_dir += turn_rate;
-    }
-
-
+  if (keys[SDL_SCANCODE_W]) {
+    input->ay -= acceleration;
+  }
+  if (keys[SDL_SCANCODE_S]) {
+    input->ay += acceleration;
+  }
+  if (keys[SDL_SCANCODE_A]) {
+    input->ax -= acceleration;
+  }
+  if (keys[SDL_SCANCODE_D]) {
+    input->ax += acceleration;
+  }
+  if (keys[SDL_SCANCODE_J]) {
+    input->turn_dir -= turn_rate;
+  }
+  if (keys[SDL_SCANCODE_K]) {
+    input->turn_dir += turn_rate;
+  }
 }
 static void turn(double direction, Camera *cam) {
   cam->rad += direction;
@@ -317,13 +370,13 @@ int main(int argc, char *argv[]) {
   bool running = true;
   Camera cam = camera_default();
 
-
-
   const Uint64 FRAME_NS = SDL_NS_PER_SECOND / TARGET_FPS;
   const Uint64 TICK_NS = SDL_NS_PER_SECOND / TICK_HZ;
 
   Uint64 accumulator = 0;
   Uint64 prev = SDL_GetTicksNS();
+
+  get_walls();
 
   while (running) {
     Uint64 frame_start = SDL_GetTicksNS();
@@ -341,10 +394,9 @@ int main(int argc, char *argv[]) {
         running = false;
       }
     }
-    
+
     Input input;
     handle_input(&input);
-
 
     while (accumulator >= TICK_NS) {
       if (input.turn_dir != 0.0) {
