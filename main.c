@@ -73,7 +73,7 @@ typedef struct {
   Vec2 dir;
   Vec2 vel;
   Vec2 relative_pos;
-  double rad;
+  double deg;
 
 } Camera;
 
@@ -84,13 +84,14 @@ typedef struct {
   int depth;
   Vec2 relative_pos;
   int seeking;
+  double deg;
 } Ray;
 
 static Camera camera_default(void) {
   Camera c = {.pos = {.x = 300, .y = 300},
               .dir = {.x = 1, .y = 0},
               .vel = {.x = 0, .y = 0},
-              .rad = 0};
+              .deg = 0};
   return c;
 }
 static void draw_grid(void) {
@@ -142,9 +143,11 @@ static void get_walls() {
 
   // printf("\n");
 }
-static int wall_collision(Ray *ray, enum axis axis) {
+static double wall_collision(Ray *ray, enum axis axis, Camera *cam) {
   int cell_x;
   int cell_y;
+  double dist = 0;
+  double perp = 0;
 
   if (axis == X) {
     // check x axis wall hits
@@ -169,15 +172,19 @@ static int wall_collision(Ray *ray, enum axis axis) {
   }
 
   // printf("cell_x: %d, cell_y: %d\n", cell_x, cell_y);
-
   if (map[cell_y][cell_x] == 1) {
     // printf("hit\n");
     ray->seeking = 0;
+    double xsq = (ray->pos.x - cam->pos.x) * (ray->pos.x - cam->pos.x);
+    double ysq = (ray ->pos.y = cam->pos.y) * (ray ->pos.y = cam->pos.y);
+    double hsq = (xsq + ysq);
+    dist = sqrt(hsq);
+    perp = dist * cos(ray->deg - cam->deg);
     // printf("%d, %d\n", cell_x, cell_y);
   }
- // printf("-\n");
+  // printf("-\n");
 
-  return 0;
+  return perp;
 }
 static void debug_draw(Vec2 hit, color col) {
   SDL_FRect h = {(float)hit.x - 4, (float)hit.y - 4, 8, 8};
@@ -209,6 +216,7 @@ static Ray init_ray(Camera *cam, double radian_raydeg) {
   ray.depth = 0;
   ray.relative_pos = cam->relative_pos;
   ray.seeking = 1;
+  ray.deg = cam->deg;
 
   return ray;
 }
@@ -244,12 +252,12 @@ static Hit get_closer_hit(Ray *ray) {
   return closer_hit;
 }
 
-static void advance_ray(Ray *ray) {
+static void advance_ray(Ray *ray, Camera *cam) {
   Vec2 delta = get_closer_hit(ray).delta;
   enum axis axis = get_closer_hit(ray).axis;
 
   ray->pos = find_next_intersection(delta, ray);
-  wall_collision(ray, axis);
+  wall_collision(ray, axis, cam);
 
   debug_draw(ray->pos, colors.red);
 
@@ -259,17 +267,18 @@ static void advance_ray(Ray *ray) {
 
 static void cast_ray(Camera *cam, double deg) {
   Ray ray = init_ray(cam, deg);
+
   for (int depth = 0; depth < MAX_RAY_DEPTH; depth++) {
     if (!ray.seeking) {
       break;
     }
-    advance_ray(&ray);
+    advance_ray(&ray, cam);
   }
 }
 
 static void cast_rays(Camera *cam) {
   if (g_debug == 1) {
-    cast_ray(cam, cam->rad);
+    cast_ray(cam, cam->deg);
     return;
   }
 
@@ -278,7 +287,7 @@ static void cast_rays(Camera *cam) {
   double radian_step = 0.001;
   ray_count = (int)(radian_FOV / radian_step);
 
-  double radian_raydeg = cam->rad - (radian_FOV / 2.0);
+  double radian_raydeg = cam->deg - (radian_FOV / 2.0);
 
   for (int i = 0; i < ray_count; i++) {
     cast_ray(cam, radian_raydeg);
@@ -347,9 +356,9 @@ static void handle_input(Input *input) {
   }
 }
 static void turn(double direction, Camera *cam) {
-  cam->rad += direction;
-  cam->dir.x = cos(cam->rad);
-  cam->dir.y = sin(cam->rad);
+  cam->deg += direction;
+  cam->dir.x = cos(cam->deg);
+  cam->dir.y = sin(cam->deg);
 }
 
 int main(int argc, char *argv[]) {
