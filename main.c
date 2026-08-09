@@ -161,10 +161,9 @@ Ray init_ray(Camera *cam, double radian_raydeg) {
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 double get_delta_from_pos(const double pos, const int sign) {
- 
-  if (pos == 0){
+  if (pos == 0) {
     return sign * CELL;
-  } 
+  }
 
   if (sign == -1) {
     return -pos;
@@ -185,7 +184,8 @@ Vec2 get_closer_delta(Ray *ray) {
   throwaway_dy = get_delta_from_pos(y, sign(ray->dir.y));
   Hit hit_f_dy = hit_from_dy(throwaway_dy, ray);
 
-  Hit closer_hit = (fabs(hit_f_dx.dist) < fabs(hit_f_dy.dist)) ? hit_f_dx : hit_f_dy;
+  Hit closer_hit =
+      (fabs(hit_f_dx.dist) < fabs(hit_f_dy.dist)) ? hit_f_dx : hit_f_dy;
 
   Vec2 delta = closer_hit.delta;
   return delta;
@@ -322,6 +322,12 @@ int main(int argc, char *argv[]) {
     draw_player(&cam);
 
     cast_rays(&cam);
+
+    // BUG:
+    // TODO: figure out axis aligned rays - probably just get d from rel pos and
+    // skip the math, should be good - but then are axis aligned rays a hit if
+    // the player is ON an axis? not sure. maybe just leave it for now and see
+    // what it looks like in rendering and figure out what to do about it then.
 
     SDL_RenderPresent(gr);
     SDL_Delay(12);  // in ms
