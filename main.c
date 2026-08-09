@@ -29,16 +29,33 @@ typedef struct {
   uint8_t a;
 } color;
 
-static color red = {255, 0, 0, 200};
-static color blue = {0, 0, 255, 200};
-// static color magenta = {0, 0, 255, 200};
-// static color yellow = {0, 0, 255, 200};
-// static color white = {255, 255, 255, 200};
+static int g_debug = 1;
+enum axis { X, Y };
 
+[[maybe_unused]] static const struct {
+  color red;
+  color green;
+  color blue;
+  color magenta;
+  color yellow;
+  color white;
+} colors = {
+    .red = {255, 0, 0, 200},
+    .green = {0, 255, 0, 200},
+    .blue = {0, 0, 255, 200},
+    .magenta = {255, 0, 255, 200},
+    .yellow = {255, 255, 0, 200},
+    .white = {255, 255, 255, 200},
+};
 
 typedef struct {
   double x, y;
 } Vec2;
+
+typedef struct {
+  Vec2 delta;
+  double dist;
+} Hit;
 
 static Vec2 walls[MAP_H * MAP_W];
 
@@ -46,17 +63,18 @@ typedef struct {
   Vec2 pos;
   Vec2 dir;
   Vec2 vel;
+  Vec2 relative_pos;
   double rad;
+
 } Camera;
 
 typedef struct {
-  Vec2 y_axis_hit;
-  Vec2 x_axis_hit;
   Vec2 dir;
   Vec2 pos;
   double slope;
   int depth;
-} Ray_params;
+  Vec2 relative_pos;
+} Ray;
 
 Camera camera_default(void) {
   Camera c = {.pos = {.x = 300, .y = 300},
@@ -107,111 +125,110 @@ void draw_map() {
   // }
   draw_grid();
 }
-void debug_draw(Vec2 hit, color col) {
 
+void debug_draw(Vec2 hit, color col) {
   SDL_FRect h = {(float)hit.x, (float)hit.y, 8, 8};
   SDL_SetRenderDrawColor(gr, col.r, col.g, col.b, col.a);
   SDL_RenderFillRect(gr, &h);
 }
-void diff(Ray_params *ray, Vec2 *delta) {
-  if (ray->depth == 0) {
-    if (ray->dir.x < 0) {
-      delta->x = -fmod(ray->pos.x, CELL);  // neg
 
-    } else if (ray->dir.x > 0) {
-      delta->x = CELL - fmod(ray->pos.x, CELL);  // pos
-    } else {
-      //   TODO: (edge case) figure out what to do about this eventually
-      delta->x = 0;
-    }
+int sign(double k) { return (k > 0) - (k < 0); }
 
-    if (ray->dir.y < 0) {
-      delta->y = -fmod(ray->pos.y, CELL);  // neg
-    } else if (ray->dir.y > 0) {
-      delta->y = CELL - fmod(ray->pos.y, CELL);  // pos
-    } else {
-      //  TODO: (edge case) figure out what to do about this eventually
-      delta->y = 0;
-    }
-  } else {
-    if (ray->dir.x < 0) {
-      delta->x = -CELL;
-    } else {
-      delta->x = CELL;
-    }
-    if (ray->dir.y < 0) {
-      delta->y = -CELL;
-    } else {
-      delta->y = CELL;
-    }
-  }
-}
-void advance_x(Vec2 delta, Ray_params *ray) {
-  if (ray->depth == 0) {
-    ray->x_axis_hit =
-        (Vec2){ray->pos.x + (delta.y * ray->slope), ray->pos.y + delta.y};
-  } else {
-    ray->x_axis_hit = (Vec2){ray->x_axis_hit.x + (delta.y * ray->slope),
-                             ray->x_axis_hit.y + delta.y};
-  }
+Vec2 find_next_intersection(Vec2 delta, Ray *ray) {
+  return (Vec2){ray->pos.x + delta.x, ray->pos.y + delta.y};
 }
 
-void advance_y(Vec2 delta, Ray_params *ray) {
-  if (ray->depth == 0) {
-    ray->y_axis_hit =
-        (Vec2){ray->pos.x + delta.x, ray->pos.y + (delta.x / ray->slope)};
-  } else {
-    ray->y_axis_hit = (Vec2){ray->y_axis_hit.x + delta.x,
-                             ray->y_axis_hit.y + (delta.x / ray->slope)};
-  }
+Hit hit_from_dy(double dy, Ray *ray) {
+  double dx = dy / ray->slope;
+  return (Hit){(Vec2){dx, dy}, (dx * dx) + (dy * dy)};
 }
-void check(Ray_params *ray) {
-  Vec2 delta;
 
-  diff(ray, &delta);
+Hit hit_from_dx(double dx, Ray *ray) {
+  double dy = dx * ray->slope;
+  return (Hit){(Vec2){dx, dy}, (dx * dx) + (dy * dy)};
+}
+Ray init_ray(Camera *cam, double radian_raydeg) {
+  Ray ray;
 
-  advance_x(delta, ray);
-  advance_y(delta, ray);
+  ray.dir = (Vec2){cos(radian_raydeg), sin(radian_raydeg)};
+  ray.pos = cam->pos;
+  ray.slope = ray.dir.y / ray.dir.x;  // tan(deg)
+  ray.depth = 0;
+  ray.relative_pos = cam->relative_pos;
 
-  debug_draw(ray->x_axis_hit, red);
-  debug_draw(ray->y_axis_hit, blue);
-   
+  return ray;
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+double get_delta_from_pos(const double pos, const int sign) {
+  if (sign == -1) {
+    return -pos;
+  }
+  if (sign == 1) {
+    return (CELL - pos);
+  }
+  return 0;
+}
+Vec2 get_closer_delta(Ray *ray) {
+  double x = ray->relative_pos.x;
+  double y = ray->relative_pos.y;
+  double throwaway_dx;
+  double throwaway_dy;
+  throwaway_dx = get_delta_from_pos(x, sign(ray->dir.x));
+  Hit hit_f_dx = hit_from_dx(throwaway_dx, ray);
+  throwaway_dy = get_delta_from_pos(y, sign(ray->dir.y));
+  Hit hit_f_dy = hit_from_dy(throwaway_dy, ray);
+
+  Hit closer_hit = (fabs(hit_f_dx.dist) < fabs(hit_f_dy.dist)) ? hit_f_dx : hit_f_dy;
+
+  Vec2 delta = closer_hit.delta;
+  return delta;
+}
+
+void advance_ray(Ray *ray) {
+  Vec2 delta = get_closer_delta(ray);
+
+  ray->pos = find_next_intersection(delta, ray);
+
+  debug_draw(ray->pos, colors.red);
+
+  ray->relative_pos.x = fmod(ray->pos.x, CELL);
+  ray->relative_pos.y = fmod(ray->pos.y, CELL);
 }
 
 void cast_ray(Camera *cam, double deg) {
-  Ray_params ray;
-  ray.pos = cam->pos;
-  ray.dir = (Vec2){cos(deg), sin(deg)};
-  ray.slope = ray.dir.x / ray.dir.y;
+  Ray ray = init_ray(cam, deg);
 
   for (int depth = 0; depth < MAX_RAY_DEPTH; depth++) {
-    ray.depth = depth;
-    check(&ray);
+    advance_ray(&ray);
   }
 }
 
 void cast_rays(Camera *cam) {
-  double deg = fmod(cam->rad, 2 * M_PI);
-
-  if (deg < 0) {
-    deg += 2 * M_PI;
+  if (g_debug == 1) {
+    cast_ray(cam, cam->rad);
+    return;
   }
 
-  double step = 1.0 / FOV;
-  double raydeg = deg - (step * (FOV / 2.0));
+  double radian_FOV = (FOV / 360.0) * 2 * M_PI;
+  int ray_count;
+  double radian_step = 0.001;
+  ray_count = (int)(radian_FOV / radian_step);
 
-  // double raydeg = deg;
+  double radian_raydeg = cam->rad - (radian_FOV / 2.0);
 
-  // cast_ray(cam, raydeg);
-  for (int i = 0; i < FOV; i++) {
-    cast_ray(cam, raydeg);
-    raydeg += step;
+  for (int i = 0; i < ray_count; i++) {
+    cast_ray(cam, radian_raydeg);
+    radian_raydeg += radian_step;
   }
 }
 
 void update_player(Camera *cam) {
   cam->pos.x += cam->vel.x;
   cam->pos.y += cam->vel.y;
+
+  cam->relative_pos.x = fmod(cam->pos.x, CELL);
+  cam->relative_pos.y = fmod(cam->pos.y, CELL);
 
   cam->vel.x /= 2;
   cam->vel.y /= 2;
