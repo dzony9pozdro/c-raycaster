@@ -4,8 +4,4 @@
 -Wextra
 -Wshadow
 -Wconversion
-<<<<<<< HEAD
 -std=gnu23
-=======
--std=c23
->>>>>>> ref
