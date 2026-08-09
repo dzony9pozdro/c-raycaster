@@ -4,4 +4,4 @@
 -Wextra
 -Wshadow
 -Wconversion
--std=gnu23
+-std=c23
