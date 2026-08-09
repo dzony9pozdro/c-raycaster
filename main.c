@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #define MAX_RAY_DEPTH 10
-#define FOV 300
+#define FOV 80
 #define MAP_W 12
 #define MAP_H 9
 #define CELL 100
@@ -29,7 +29,7 @@ typedef struct {
   uint8_t a;
 } color;
 
-static int g_debug = 1;
+static int g_debug = 0;
 enum axis { X, Y };
 
 [[maybe_unused]] static const struct {
@@ -323,14 +323,27 @@ int main(int argc, char *argv[]) {
 
     cast_rays(&cam);
 
-    // BUG:
+    // NOTE: right now rays are drawn until they exceed a maximum depth - it's
+    // not based on distance from the camera - is it an issue? probably not,
+    // just might be more efficient to cap it to distance, then the checked area
+    // will be a slice of a circle rather than a right triangle, which might
+    // save compute if i ever add some sort of distance based fog, since
+    // there's no need to compute the walls that are beyond the fog
+
+    // BUG: ?
     // TODO: figure out axis aligned rays - probably just get d from rel pos and
     // skip the math, should be good - but then are axis aligned rays a hit if
     // the player is ON an axis? not sure. maybe just leave it for now and see
     // what it looks like in rendering and figure out what to do about it then.
 
+    // TODO: PERF
+    // figure out frame buffering, or if it's even possible. a flat delay makes
+    // it laggy at higher values OR - at the start of a frame start a counter in
+    // milliseconds, by the end if less than goal_ms
+    // (where goal_ms is 1000 /goal_fps) has passed, wait goal_ms - elapsed_ms
+    // ??? sounds like a good idea, there might be some reasons why it's not
     SDL_RenderPresent(gr);
-    SDL_Delay(12);  // in ms
+    SDL_Delay(1);  // in ms
   }
 
   SDL_DestroyRenderer(gr);
