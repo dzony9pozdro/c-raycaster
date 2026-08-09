@@ -1,4 +1,4 @@
-CFLAGS = -Wall -Wextra -Wshadow -Wconversion -g $(shell pkg-config --cflags sdl3)
+CFLAGS = -Wall -Wextra -Wshadow -Wconversion -std=c23 -g $(shell pkg-config --cflags sdl3)
 CFLAGS += -fsanitize=address,undefined -fno-omit-frame-pointer
 LDLIBS = $(shell pkg-config --libs sdl3) -lm
 LDFLAGS = -fsanitize=address,undefined

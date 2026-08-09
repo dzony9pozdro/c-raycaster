@@ -3,11 +3,14 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#define MAX_RAY_DEPTH 10
+#define MAX_RAY_DEPTH 5
 #define FOV 80
 #define MAP_W 12
 #define MAP_H 9
 #define CELL 100
+
+#define TARGET_FPS 150
+#define TICK_HZ 60
 
 static SDL_Renderer *gr;
 
@@ -53,6 +56,11 @@ typedef struct {
 } Vec2;
 
 typedef struct {
+  double ax;
+  double ay;
+  double turn_dir;
+} Input;
+typedef struct {
   Vec2 delta;
   double dist;
 } Hit;
@@ -76,14 +84,14 @@ typedef struct {
   Vec2 relative_pos;
 } Ray;
 
-Camera camera_default(void) {
+static Camera camera_default(void) {
   Camera c = {.pos = {.x = 300, .y = 300},
               .dir = {.x = 1, .y = 0},
               .vel = {.x = 0, .y = 0},
               .rad = 0};
   return c;
 }
-void draw_grid(void) {
+static void draw_grid(void) {
   static int px = 0;
   static int py = 0;
 
@@ -100,7 +108,7 @@ void draw_grid(void) {
   }
 }
 
-void draw_map() {
+static void draw_map() {
   static int px = 0;
   static int py = 0;
   int i = 0;
@@ -126,28 +134,28 @@ void draw_map() {
   draw_grid();
 }
 
-void debug_draw(Vec2 hit, color col) {
+static void debug_draw(Vec2 hit, color col) {
   SDL_FRect h = {(float)hit.x, (float)hit.y, 8, 8};
   SDL_SetRenderDrawColor(gr, col.r, col.g, col.b, col.a);
   SDL_RenderFillRect(gr, &h);
 }
 
-int sign(double k) { return (k > 0) - (k < 0); }
+static int sign(double k) { return (k > 0) - (k < 0); }
 
-Vec2 find_next_intersection(Vec2 delta, Ray *ray) {
+static Vec2 find_next_intersection(Vec2 delta, Ray *ray) {
   return (Vec2){ray->pos.x + delta.x, ray->pos.y + delta.y};
 }
 
-Hit hit_from_dy(double dy, Ray *ray) {
+static Hit hit_from_dy(double dy, Ray *ray) {
   double dx = dy / ray->slope;
   return (Hit){(Vec2){dx, dy}, (dx * dx) + (dy * dy)};
 }
 
-Hit hit_from_dx(double dx, Ray *ray) {
+static Hit hit_from_dx(double dx, Ray *ray) {
   double dy = dx * ray->slope;
   return (Hit){(Vec2){dx, dy}, (dx * dx) + (dy * dy)};
 }
-Ray init_ray(Camera *cam, double radian_raydeg) {
+static Ray init_ray(Camera *cam, double radian_raydeg) {
   Ray ray;
 
   ray.dir = (Vec2){cos(radian_raydeg), sin(radian_raydeg)};
@@ -160,7 +168,7 @@ Ray init_ray(Camera *cam, double radian_raydeg) {
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-double get_delta_from_pos(const double pos, const int sign) {
+static double get_delta_from_pos(const double pos, const int sign) {
   if (pos == 0) {
     return sign * CELL;
   }
@@ -174,7 +182,7 @@ double get_delta_from_pos(const double pos, const int sign) {
   return 0;
 }
 
-Vec2 get_closer_delta(Ray *ray) {
+static Vec2 get_closer_delta(Ray *ray) {
   double x = ray->relative_pos.x;
   double y = ray->relative_pos.y;
   double throwaway_dx;
@@ -191,7 +199,7 @@ Vec2 get_closer_delta(Ray *ray) {
   return delta;
 }
 
-void advance_ray(Ray *ray) {
+static void advance_ray(Ray *ray) {
   Vec2 delta = get_closer_delta(ray);
 
   ray->pos = find_next_intersection(delta, ray);
@@ -202,7 +210,7 @@ void advance_ray(Ray *ray) {
   ray->relative_pos.y = fmod(ray->pos.y, CELL);
 }
 
-void cast_ray(Camera *cam, double deg) {
+static void cast_ray(Camera *cam, double deg) {
   Ray ray = init_ray(cam, deg);
 
   for (int depth = 0; depth < MAX_RAY_DEPTH; depth++) {
@@ -210,7 +218,7 @@ void cast_ray(Camera *cam, double deg) {
   }
 }
 
-void cast_rays(Camera *cam) {
+static void cast_rays(Camera *cam) {
   if (g_debug == 1) {
     cast_ray(cam, cam->rad);
     return;
@@ -229,7 +237,7 @@ void cast_rays(Camera *cam) {
   }
 }
 
-void update_player(Camera *cam) {
+static void update_player(Camera *cam) {
   cam->pos.x += cam->vel.x;
   cam->pos.y += cam->vel.y;
 
@@ -240,7 +248,7 @@ void update_player(Camera *cam) {
   cam->vel.y /= 2;
 }
 
-void draw_player(Camera *cam) {
+static void draw_player(Camera *cam) {
   SDL_SetRenderDrawColor(gr, 200, 200, 200, 255);
   double line_length = 150;
 
@@ -260,7 +268,39 @@ void draw_player(Camera *cam) {
                  (float)cam->pos.y + (float)(cam->dir.y * line_length));
 }
 
-void turn(double direction, Camera *cam) {
+static void handle_input(Input *input){
+
+  input->turn_dir = 0.0;
+  input->ax = 0.0;
+  input->ay = 0.0;
+
+  const double acceleration = 9.0;
+  const double turn_rate = 0.02 * M_PI;
+
+  const bool *keys = SDL_GetKeyboardState(NULL);
+
+    if (keys[SDL_SCANCODE_W]) {
+      input->ay -= acceleration;
+    }
+    if (keys[SDL_SCANCODE_S]) {
+      input->ay += acceleration;
+    }
+    if (keys[SDL_SCANCODE_A]) {
+      input->ax -= acceleration;
+    }
+    if (keys[SDL_SCANCODE_D]) {
+      input->ax += acceleration;
+    }
+    if (keys[SDL_SCANCODE_J]) {
+      input->turn_dir -= turn_rate;
+    }
+    if (keys[SDL_SCANCODE_K]) {
+      input->turn_dir += turn_rate;
+    }
+
+
+}
+static void turn(double direction, Camera *cam) {
   cam->rad += direction;
   cam->dir.x = cos(cam->rad);
   cam->dir.y = sin(cam->rad);
@@ -271,79 +311,66 @@ int main(int argc, char *argv[]) {
   (void)argv;
 
   SDL_Init(SDL_INIT_VIDEO);
-
   SDL_Window *window =
       SDL_CreateWindow("raycaster", MAP_W * CELL, MAP_H * CELL, 0);
-
   gr = SDL_CreateRenderer(window, NULL);
-
   bool running = true;
-
   Camera cam = camera_default();
 
-  const bool *keys = SDL_GetKeyboardState(NULL);
-  float acceleration = 5;
+
+
+  const Uint64 FRAME_NS = SDL_NS_PER_SECOND / TARGET_FPS;
+  const Uint64 TICK_NS = SDL_NS_PER_SECOND / TICK_HZ;
+
+  Uint64 accumulator = 0;
+  Uint64 prev = SDL_GetTicksNS();
+
   while (running) {
+    Uint64 frame_start = SDL_GetTicksNS();
+
+    accumulator += frame_start - prev;
+    prev = frame_start;
+
+    if (accumulator > SDL_NS_PER_SECOND / 4) {
+      accumulator = SDL_NS_PER_SECOND / 4;
+    }
+
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
       if (e.type == SDL_EVENT_QUIT) {
         running = false;
       }
     }
+    
+    Input input;
+    handle_input(&input);
 
-    if (keys[SDL_SCANCODE_W] && cam.vel.y < 300) {
-      cam.vel.y -= acceleration;
-    }
-    if (keys[SDL_SCANCODE_S] && cam.vel.y > -300) {
-      cam.vel.y += acceleration;
-    }
-    if (keys[SDL_SCANCODE_A] && cam.vel.x > -300) {
-      cam.vel.x -= acceleration;
-    }
-    if (keys[SDL_SCANCODE_D] && cam.vel.x < 300) {
-      cam.vel.x += acceleration;
-    }
 
-    if (keys[SDL_SCANCODE_J]) {
-      turn(-0.02 * M_PI, &cam);
-    }
+    while (accumulator >= TICK_NS) {
+      if (input.turn_dir != 0.0) {
+        turn(input.turn_dir, &cam);
+      }
 
-    if (keys[SDL_SCANCODE_K]) {
-      turn(0.02 * M_PI, &cam);
+      cam.vel.x += input.ax;
+      cam.vel.y += input.ay;
+
+      update_player(&cam);
+      accumulator -= TICK_NS;
     }
 
-    SDL_SetRenderDrawColor(gr, 30, 60, 120, 255);  // blue-ish
+    SDL_SetRenderDrawColor(gr, 30, 60, 120, 255);
     SDL_RenderClear(gr);
 
     draw_map();
-
-    update_player(&cam);
-
     draw_player(&cam);
-
     cast_rays(&cam);
 
-    // NOTE: right now rays are drawn until they exceed a maximum depth - it's
-    // not based on distance from the camera - is it an issue? probably not,
-    // just might be more efficient to cap it to distance, then the checked area
-    // will be a slice of a circle rather than a right triangle, which might
-    // save compute if i ever add some sort of distance based fog, since
-    // there's no need to compute the walls that are beyond the fog
-
-    // BUG: ?
-    // TODO: figure out axis aligned rays - probably just get d from rel pos and
-    // skip the math, should be good - but then are axis aligned rays a hit if
-    // the player is ON an axis? not sure. maybe just leave it for now and see
-    // what it looks like in rendering and figure out what to do about it then.
-
-    // TODO: PERF
-    // figure out frame buffering, or if it's even possible. a flat delay makes
-    // it laggy at higher values OR - at the start of a frame start a counter in
-    // milliseconds, by the end if less than goal_ms
-    // (where goal_ms is 1000 /goal_fps) has passed, wait goal_ms - elapsed_ms
-    // ??? sounds like a good idea, there might be some reasons why it's not
     SDL_RenderPresent(gr);
-    SDL_Delay(1);  // in ms
+
+    Uint64 elapsed = SDL_GetTicksNS() - frame_start;
+    if (elapsed < FRAME_NS) {
+      SDL_DelayPrecise(FRAME_NS - elapsed);
+    }
   }
 
   SDL_DestroyRenderer(gr);
