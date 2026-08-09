@@ -176,7 +176,7 @@ static double wall_collision(Ray *ray, enum axis axis, Camera *cam) {
     // printf("hit\n");
     ray->seeking = 0;
     double xsq = (ray->pos.x - cam->pos.x) * (ray->pos.x - cam->pos.x);
-    double ysq = (ray ->pos.y = cam->pos.y) * (ray ->pos.y = cam->pos.y);
+    double ysq = (ray ->pos.y - cam->pos.y) * (ray ->pos.y - cam->pos.y);
     double hsq = (xsq + ysq);
     dist = sqrt(hsq);
     perp = dist * cos(ray->deg - cam->deg);
@@ -216,7 +216,7 @@ static Ray init_ray(Camera *cam, double radian_raydeg) {
   ray.depth = 0;
   ray.relative_pos = cam->relative_pos;
   ray.seeking = 1;
-  ray.deg = cam->deg;
+  ray.deg = radian_raydeg;
 
   return ray;
 }
