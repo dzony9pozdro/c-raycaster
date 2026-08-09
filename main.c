@@ -140,7 +140,7 @@ static void debug_draw(Vec2 hit, color col) {
   SDL_RenderFillRect(gr, &h);
 }
 
-static int sign(double k) { return (k > 0) - (k < 0); }
+static int sign_of(double k) { return (k > 0) - (k < 0); }
 
 static Vec2 find_next_intersection(Vec2 delta, Ray *ray) {
   return (Vec2){ray->pos.x + delta.x, ray->pos.y + delta.y};
@@ -187,9 +187,9 @@ static Vec2 get_closer_delta(Ray *ray) {
   double y = ray->relative_pos.y;
   double throwaway_dx;
   double throwaway_dy;
-  throwaway_dx = get_delta_from_pos(x, sign(ray->dir.x));
+  throwaway_dx = get_delta_from_pos(x, sign_of(ray->dir.x));
   Hit hit_f_dx = hit_from_dx(throwaway_dx, ray);
-  throwaway_dy = get_delta_from_pos(y, sign(ray->dir.y));
+  throwaway_dy = get_delta_from_pos(y, sign_of(ray->dir.y));
   Hit hit_f_dy = hit_from_dy(throwaway_dy, ray);
 
   Hit closer_hit =
