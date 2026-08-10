@@ -1,11 +1,14 @@
 #include <SDL3/SDL.h>
 #include <math.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+
 #define SCREEN_HEIGHT 900
 #define SCREEN_WIDTH 1200
 #define MAX_RAY_DEPTH 15
-#define FOV 80
+#define FOV 100
 #define MAP_W 120
 #define MAP_H 90
 #define CELL 100
@@ -34,7 +37,9 @@ typedef struct {
 } color;
 
 static int g_atan_correction = 1;
-static int g_debug = 0;
+static int g_debug = 1;
+static int g_debug_single_ray = 0;
+
 enum axis { X = 0, Y = 1 };
 
 [[maybe_unused]] static const struct {
@@ -280,11 +285,12 @@ static void draw_column(Ray *ray, float x, float w) {
   float y = horizon - (float)(h / 2.0);
 
   SDL_FRect col = {x, y, w, h};
-  if (ray->axis == X){
-  SDL_SetRenderDrawColor(gr, colors.white.r - 65, colors.white.g - 65, colors.white.b - 65, 255);
+  if (ray->axis == X) {
+    SDL_SetRenderDrawColor(gr, colors.white.r - 65, colors.white.g - 65,
+                           colors.white.b - 65, 255);
   } else {
-
-  SDL_SetRenderDrawColor(gr, colors.white.r - 80, colors.white.g - 80, colors.white.b - 80, 255);
+    SDL_SetRenderDrawColor(gr, colors.white.r - 80, colors.white.g - 80,
+                           colors.white.b - 80, 255);
   }
 
   SDL_RenderFillRect(gr, &col);
@@ -294,7 +300,9 @@ static void cast_ray(Camera *cam, double deg, const int ray_idx) {
   Ray ray = init_ray(cam, deg);
   for (int depth = 0; depth < MAX_RAY_DEPTH; depth++) {
     if (!ray.seeking) {
-      draw_column(&ray, (float)ray_idx, 1.0);
+      if (g_debug == 0) {
+        draw_column(&ray, (float)ray_idx, 1.0);
+      }
       break;
     }
     advance_ray(&ray, cam);
@@ -302,7 +310,7 @@ static void cast_ray(Camera *cam, double deg, const int ray_idx) {
 }
 
 static void cast_rays(Camera *cam) {
-  if (g_debug == 1) {
+  if (g_debug_single_ray == 1) {
     cast_ray(cam, cam->deg, 1);
     return;
   }
@@ -316,13 +324,12 @@ static void cast_rays(Camera *cam) {
   ray_count = (int)(radian_FOV / radian_step);
 
   double radian_raydeg = 0;
-  if (g_atan_correction == 0){
-  radian_raydeg = cam->deg - (radian_FOV / 2.0);
+  if (g_atan_correction == 0) {
+    radian_raydeg = cam->deg - (radian_FOV / 2.0);
   }
   double camx = 0;
 
   for (int i = 0; i < ray_count; i++) {
-
     if (g_atan_correction == 1) {
       camx = (2.0 * i / (double)SCREEN_WIDTH) - 1.0;
       radian_raydeg = cam->deg + atan(camx * tan(radian_FOV / 2.0));
@@ -330,9 +337,6 @@ static void cast_rays(Camera *cam) {
     cast_ray(cam, radian_raydeg, i);
     radian_raydeg += radian_step;
   }
-
-
-
 }
 
 static void update_player(Camera *cam) {
@@ -431,47 +435,63 @@ int main(int argc, char *argv[]) {
 
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
-      if (e.type == SDL_EVENT_QUIT) {
-        running = false;
+      if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {
+        switch (e.key.scancode) {
+          case SDL_SCANCODE_G:
+            g_debug ^= 1;
+            break;
+          case SDL_SCANCODE_H:
+            g_debug_single_ray ^= 1;
+            break;
+          case SDL_SCANCODE_Y:
+            g_atan_correction ^= 1;
+            break;
+          default:
+            break;
+        }
       }
-    }
-
-    Input input;
-    handle_input(&input);
-
-    while (accumulator >= TICK_NS) {
-      if (input.turn_dir != 0.0) {
-        turn(input.turn_dir, &cam);
-      }
-
-      cam.vel.x += (input.ay * cam.dir.x) + (input.ax * -cam.dir.y);
-      cam.vel.y += (input.ay * cam.dir.y) + (input.ax * cam.dir.x);
-
-      // cam.vel.x += input.ax;
-      // cam.vel.y += input.ay;
-
-      update_player(&cam);
-      accumulator -= TICK_NS;
-    }
-
-    SDL_SetRenderDrawColor(gr, 30, 60, 120, 255);
-    SDL_RenderClear(gr);
-    if (g_debug == 1) {
-      draw_map();
-      draw_player(&cam);
-    }
-    cast_rays(&cam);
-
-    SDL_RenderPresent(gr);
-
-    Uint64 elapsed = SDL_GetTicksNS() - frame_start;
-    if (elapsed < FRAME_NS) {
-      SDL_DelayPrecise(FRAME_NS - elapsed);
+    
+    if (e.type == SDL_EVENT_QUIT) {
+      running = false;
     }
   }
 
-  SDL_DestroyRenderer(gr);
-  SDL_DestroyWindow(window);
-  SDL_Quit();
-  return 0;
+  Input input;
+  handle_input(&input);
+
+  while (accumulator >= TICK_NS) {
+    if (input.turn_dir != 0.0) {
+      turn(input.turn_dir, &cam);
+    }
+
+    cam.vel.x += (input.ay * cam.dir.x) + (input.ax * -cam.dir.y);
+    cam.vel.y += (input.ay * cam.dir.y) + (input.ax * cam.dir.x);
+
+    // cam.vel.x += input.ax;
+    // cam.vel.y += input.ay;
+
+    update_player(&cam);
+    accumulator -= TICK_NS;
+  }
+
+  SDL_SetRenderDrawColor(gr, 30, 60, 120, 255);
+  SDL_RenderClear(gr);
+  if (g_debug == 1) {
+    draw_map();
+    draw_player(&cam);
+  }
+  cast_rays(&cam);
+
+  SDL_RenderPresent(gr);
+
+  Uint64 elapsed = SDL_GetTicksNS() - frame_start;
+  if (elapsed < FRAME_NS) {
+    SDL_DelayPrecise(FRAME_NS - elapsed);
+  }
+}
+
+SDL_DestroyRenderer(gr);
+SDL_DestroyWindow(window);
+SDL_Quit();
+return 0;
 }
