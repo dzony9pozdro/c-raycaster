@@ -17,8 +17,22 @@
 #define TARGET_FPS 60
 #define TICK_HZ 60
 
-static SDL_Renderer *gr;
 
+typedef struct {
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+  uint8_t a;
+} color;
+
+
+// GLOBALS
+static int g_atan_correction = 1;
+static int g_debug = 0;
+static int g_debug_single_ray = 0;
+
+
+static SDL_Renderer *gr;
 static int map[MAP_H][MAP_W] = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},  //
@@ -30,16 +44,8 @@ static int map[MAP_H][MAP_W] = {
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 };
-typedef struct {
-  uint8_t r;
-  uint8_t g;
-  uint8_t b;
-  uint8_t a;
-} color;
 
-static int g_atan_correction = 1;
-static int g_debug = 1;
-static int g_debug_single_ray = 0;
+
 
 enum axis { X = 0, Y = 1 };
 
@@ -74,7 +80,6 @@ typedef struct {
   enum axis axis;
 } Hit;
 
-static Vec2 walls[MAP_H * MAP_W];
 
 typedef struct {
   Vec2 pos;
@@ -140,21 +145,8 @@ static void draw_map() {
 
   draw_grid();
 }
-static int wall_count = 0;
-static void get_walls() {
-  int i = 0;
-  for (int cell_y = 0; cell_y < MAP_H; cell_y++) {
-    for (int cell_x = 0; cell_x < MAP_W; cell_x++) {
-      if (map[cell_y][cell_x] == 1) {
-        walls[i++] = (Vec2){cell_x, cell_y};
-        wall_count += 1;
-      }
-    }
-  }
-
-  // printf("\n");
-}
 static void wall_collision(Ray *ray, enum axis axis, Camera *cam) {
+
   int cell_x;
   int cell_y;
   double dist = 0;
@@ -431,8 +423,6 @@ int main(int argc, char *argv[]) {
   Uint64 accumulator = 0;
   Uint64 prev = SDL_GetTicksNS();
 
-  get_walls();
-
   while (running) {
     Uint64 frame_start = SDL_GetTicksNS();
 
@@ -460,48 +450,48 @@ int main(int argc, char *argv[]) {
             break;
         }
       }
-    
-    if (e.type == SDL_EVENT_QUIT) {
-      running = false;
+
+      if (e.type == SDL_EVENT_QUIT) {
+        running = false;
+      }
+    }
+
+    Input input;
+    handle_input(&input);
+
+    while (accumulator >= TICK_NS) {
+      if (input.turn_dir != 0.0) {
+        turn(input.turn_dir, &cam);
+      }
+
+      cam.vel.x += (input.ay * cam.dir.x) + (input.ax * -cam.dir.y);
+      cam.vel.y += (input.ay * cam.dir.y) + (input.ax * cam.dir.x);
+
+      // cam.vel.x += input.ax;
+      // cam.vel.y += input.ay;
+
+      update_player(&cam);
+      accumulator -= TICK_NS;
+    }
+
+    SDL_SetRenderDrawColor(gr, 30, 60, 120, 255);
+    SDL_RenderClear(gr);
+    if (g_debug == 1) {
+      draw_map();
+      draw_player(&cam);
+    }
+    cast_rays(&cam);
+
+    SDL_RenderPresent(gr);
+
+    Uint64 elapsed = SDL_GetTicksNS() - frame_start;
+    if (elapsed < FRAME_NS) {
+      SDL_DelayPrecise(FRAME_NS - elapsed);
     }
   }
 
-  Input input;
-  handle_input(&input);
-
-  while (accumulator >= TICK_NS) {
-    if (input.turn_dir != 0.0) {
-      turn(input.turn_dir, &cam);
-    }
-
-    cam.vel.x += (input.ay * cam.dir.x) + (input.ax * -cam.dir.y);
-    cam.vel.y += (input.ay * cam.dir.y) + (input.ax * cam.dir.x);
-
-    // cam.vel.x += input.ax;
-    // cam.vel.y += input.ay;
-
-    update_player(&cam);
-    accumulator -= TICK_NS;
-  }
-
-  SDL_SetRenderDrawColor(gr, 30, 60, 120, 255);
-  SDL_RenderClear(gr);
-  if (g_debug == 1) {
-    draw_map();
-    draw_player(&cam);
-  }
-  cast_rays(&cam);
-
-  SDL_RenderPresent(gr);
-
-  Uint64 elapsed = SDL_GetTicksNS() - frame_start;
-  if (elapsed < FRAME_NS) {
-    SDL_DelayPrecise(FRAME_NS - elapsed);
-  }
-}
-
-SDL_DestroyRenderer(gr);
-SDL_DestroyWindow(window);
-SDL_Quit();
-return 0;
+  SDL_DestroyRenderer(gr);
+  SDL_DestroyWindow(window);
+  SDL_Quit();
+  return 0;
 }
