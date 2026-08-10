@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define RAY_EPS 1e-9
 #define SCREEN_HEIGHT 900
 #define SCREEN_WIDTH 1200
 #define MAX_RAY_DEPTH 15
@@ -223,6 +224,15 @@ static Ray init_ray(Camera *cam, double radian_raydeg) {
 
   ray.dir = (Vec2){cos(radian_raydeg), sin(radian_raydeg)};
   ray.pos = cam->pos;
+
+  // to avoid nan (if we don't, column is not drawn for that ray, and a runtime error is issued (undefined behavior))
+  if (fabs(ray.dir.x) < RAY_EPS) {
+    ray.dir.x = copysign(RAY_EPS, ray.dir.x);
+  }
+  if (fabs(ray.dir.y) < RAY_EPS) {
+    ray.dir.y = copysign(RAY_EPS, ray.dir.y);
+  }
+
   ray.slope = ray.dir.y / ray.dir.x;  // tan(deg)
   ray.depth = 0;
   ray.relative_pos = cam->relative_pos;
