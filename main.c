@@ -9,10 +9,10 @@
 #define RAY_EPS 1e-9
 #define SCREEN_HEIGHT 900
 #define SCREEN_WIDTH 1200
-#define MAX_RAY_DEPTH 15
+#define MAX_RAY_DEPTH 36
 #define FOV 100
-#define MAP_W 12
-#define MAP_H 9
+#define MAP_W 24
+#define MAP_H 18
 #define CELL 100
 
 #define TARGET_FPS 60
@@ -23,7 +23,7 @@ typedef struct {
   uint8_t g;
   uint8_t b;
   uint8_t a;
-} color;
+} Color;
 
 // GLOBALS
 static int g_atan_correction = 1;
@@ -32,28 +32,37 @@ static int g_debug_single_ray = 0;
 
 static SDL_Renderer *gr;
 static int map[MAP_H][MAP_W] = {
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},  //
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
+    {1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 };
 
 enum axis { X = 0, Y = 1 };
 
 [[maybe_unused]] static const struct {
-  color red;
-  color green;
-  color blue;
-  color magenta;
-  color yellow;
-  color white;
-  color brown;
-  color sky;
+  Color red;
+  Color green;
+  Color blue;
+  Color magenta;
+  Color yellow;
+  Color white;
+  Color brown;
+  Color sky;
 } colors = {
     .red = {255, 0, 0, 200},
     .green = {0, 255, 0, 200},
@@ -98,7 +107,6 @@ typedef struct {
   int seeking;
   double deg;
   double perp;
-  double dist;
   enum axis axis;
 } Ray;
 
@@ -144,7 +152,15 @@ static void draw_map() {
 
   draw_grid();
 }
-static void wall_collision(Ray *ray, enum axis axis, Camera *cam) {
+
+static int cell_out_of_map(int cell_x, int cell_y) {
+  if (cell_x < 0 || cell_x >= MAP_W || cell_y < 0 || cell_y >= MAP_H) {
+    return 1;
+  }
+  return 0;
+}
+
+static void ray_wall_detection(Ray *ray, enum axis axis, Camera *cam) {
   int cell_x;
   int cell_y;
   double dist = 0;
@@ -168,13 +184,12 @@ static void wall_collision(Ray *ray, enum axis axis, Camera *cam) {
     }
   }
 
-  if (cell_x >= MAP_W || cell_y >= MAP_H || cell_x < 0 || cell_y < 0) {
+  // prevent out of bounds
+  if (cell_out_of_map(cell_x, cell_y)) {
     return;
   }
 
-  // printf("cell_x: %d, cell_y: %d\n", cell_x, cell_y);
   if (map[cell_y][cell_x] == 1) {
-    // printf("hit\n");
     ray->seeking = 0;
     ray->axis = axis;
     double xsq = (ray->pos.x - cam->pos.x) * (ray->pos.x - cam->pos.x);
@@ -182,13 +197,10 @@ static void wall_collision(Ray *ray, enum axis axis, Camera *cam) {
     double hsq = (xsq + ysq);
     dist = sqrt(hsq);
     perp = dist * cos(ray->deg - cam->deg);
-    // printf("%d, %d\n", cell_x, cell_y);
   }
-  // printf("-\n");
-  ray->dist = dist;
   ray->perp = perp;
 }
-static void debug_draw(Vec2 hit, color col) {
+static void debug_draw(Vec2 hit, Color col) {
   SDL_FRect h = {(float)hit.x - 4, (float)hit.y - 4, 8, 8};
   SDL_SetRenderDrawColor(gr, col.r, col.g, col.b, col.a);
   SDL_RenderFillRect(gr, &h);
@@ -210,7 +222,7 @@ static Hit hit_from_dx(double dx, Ray *ray) {
   return (Hit){(Vec2){dx, dy}, (dx * dx) + (dy * dy), X};
 }
 static Ray init_ray(Camera *cam, double radian_raydeg) {
-  Ray ray;
+  Ray ray = {0};
 
   ray.dir = (Vec2){cos(radian_raydeg), sin(radian_raydeg)};
   ray.pos = cam->pos;
@@ -266,6 +278,11 @@ static Hit get_closer_hit(Ray *ray) {
 static int point_is_in_wall(Vec2 point) {
   int cell_x = (int)(point.x / CELL);
   int cell_y = (int)(point.y / CELL);
+
+  // prevent out of bounds
+  if (cell_out_of_map(cell_x, cell_y)) {
+    return 0;
+  }
   if (map[cell_y][cell_x] == 1) {
     return 1;
   }
@@ -279,7 +296,7 @@ static void advance_ray(Ray *ray, Camera *cam) {
   enum axis axis = closer_hit.axis;
 
   ray->pos = find_next_intersection(delta, ray);
-  wall_collision(ray, axis, cam);
+  ray_wall_detection(ray, axis, cam);
 
   if (g_debug == 1) {
     debug_draw(ray->pos, colors.red);
@@ -325,12 +342,10 @@ static void cast_rays(Camera *cam) {
   }
 
   double radian_FOV = (FOV / 360.0) * 2 * M_PI;
-  int ray_count;
 
   double radian_step = radian_FOV / SCREEN_WIDTH;
-  ray_count = SCREEN_WIDTH;
 
-  ray_count = (int)(radian_FOV / radian_step);
+  int ray_count = (int)(radian_FOV / radian_step);
 
   double radian_raydeg = 0;
   if (g_atan_correction == 0) {
@@ -390,7 +405,7 @@ static void draw_player(Camera *cam) {
                  (float)cam->pos.y + (float)(cam->dir.y * line_length));
 }
 
-static void handle_input(Input *input) {
+static void handle_player_input(Input *input) {
   input->turn_dir = 0.0;
   input->ax = 0.0;
   input->ay = 0.0;
@@ -425,8 +440,8 @@ static void turn(double direction, Camera *cam) {
   cam->dir.y = sin(cam->deg);
 }
 static void draw_background() {
-  color ground = colors.brown;
-  color sky = colors.sky;
+  Color ground = colors.brown;
+  Color sky = colors.sky;
 
   float horizon = SCREEN_HEIGHT / 2.0;
   SDL_FRect grnd = {0, horizon, SCREEN_WIDTH, horizon};
@@ -448,23 +463,36 @@ static void tick(Camera *cam, Input *input) {
   update_player(cam);
 }
 
-static void debug_options_input(SDL_Event *e){
+static void handle_debug_option_input(SDL_Event *e) {
+  if (e->type == SDL_EVENT_KEY_DOWN && !e->key.repeat) {
+    switch (e->key.scancode) {
+      case SDL_SCANCODE_G:
+        g_debug ^= 1;
+        break;
+      case SDL_SCANCODE_H:
+        g_debug_single_ray ^= 1;
+        break;
+      case SDL_SCANCODE_Y:
+        g_atan_correction ^= 1;
+        break;
+      default:
+        break;
+    }
+  }
+}
+static void render(Camera *cam) {
+  SDL_SetRenderDrawColor(gr, 30, 60, 120, 255);
+  SDL_RenderClear(gr);
+  if (g_debug == 1) {
+    draw_map();
+    draw_player(cam);
+  }
+  if (g_debug == 0) {
+    draw_background();
+  }
+  cast_rays(cam);
 
-      if (e->type == SDL_EVENT_KEY_DOWN && !e->key.repeat) {
-        switch (e->key.scancode) {
-          case SDL_SCANCODE_G:
-            g_debug ^= 1;
-            break;
-          case SDL_SCANCODE_H:
-            g_debug_single_ray ^= 1;
-            break;
-          case SDL_SCANCODE_Y:
-            g_atan_correction ^= 1;
-            break;
-          default:
-            break;
-        }
-      }
+  SDL_RenderPresent(gr);
 }
 
 int main(int argc, char *argv[]) {
@@ -472,7 +500,8 @@ int main(int argc, char *argv[]) {
   (void)argv;
 
   SDL_Init(SDL_INIT_VIDEO);
-  SDL_Window *window = SDL_CreateWindow("raycaster", 1200, 900, 0);
+  SDL_Window *window =
+      SDL_CreateWindow("raycaster", SCREEN_WIDTH, SCREEN_HEIGHT, 0);
   gr = SDL_CreateRenderer(window, NULL);
   bool running = true;
   Camera cam = camera_default();
@@ -495,34 +524,22 @@ int main(int argc, char *argv[]) {
 
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
-      debug_options_input(&e);
-      
+      handle_debug_option_input(&e);
+
       if (e.type == SDL_EVENT_QUIT) {
         running = false;
       }
     }
 
     Input input;
-    handle_input(&input);
+    handle_player_input(&input);
 
     while (accumulator >= TICK_NS) {
       accumulator -= TICK_NS;
       tick(&cam, &input);
     }
 
-    SDL_SetRenderDrawColor(gr, 30, 60, 120, 255);
-    SDL_RenderClear(gr);
-    if (g_debug == 1) {
-      draw_map();
-      draw_player(&cam);
-    }
-
-    if (g_debug == 0) {
-      draw_background();
-    }
-    cast_rays(&cam);
-
-    SDL_RenderPresent(gr);
+    render(&cam);
 
     Uint64 elapsed = SDL_GetTicksNS() - frame_start;
     if (elapsed < FRAME_NS) {
