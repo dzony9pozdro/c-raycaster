@@ -1,4 +1,5 @@
 #include <SDL3/SDL.h>
+#include <SDL3_ttf/SDL_ttf.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -14,6 +15,7 @@
 #define MAP_W 24
 #define MAP_H 18
 #define CELL 100
+#define DEBUG_CELL 40
 
 #define TARGET_FPS 60
 #define TICK_HZ 60
@@ -122,13 +124,13 @@ static void draw_grid(void) {
   static int py = 0;
 
   for (int row = 0; row < MAP_H; row++) {
-    py = CELL * row;
+    py = DEBUG_CELL * row;
     SDL_FRect r = {0, (float)py, 30000, 1};
     SDL_RenderFillRect(gr, &r);
   }
 
   for (int col = 0; col < MAP_W; col++) {
-    px = CELL * col;
+    px = DEBUG_CELL * col;
     SDL_FRect r = {(float)px, 0, 1, 300000};
     SDL_RenderFillRect(gr, &r);
   }
@@ -141,10 +143,10 @@ static void draw_map() {
   SDL_SetRenderDrawColor(gr, 200, 200, 200, 255);
   for (int cell_y = 0; cell_y < MAP_H; cell_y++) {
     for (int cell_x = 0; cell_x < MAP_W; cell_x++) {
-      px = CELL * cell_x;
-      py = CELL * cell_y;
+      px = DEBUG_CELL * cell_x;
+      py = DEBUG_CELL * cell_y;
       if (map[cell_y][cell_x] == 1) {
-        SDL_FRect r = {(float)px, (float)py, CELL, CELL};
+        SDL_FRect r = {(float)px, (float)py, DEBUG_CELL, DEBUG_CELL};
         SDL_RenderFillRect(gr, &r);
       }
     }
@@ -201,7 +203,11 @@ static void ray_wall_detection(Ray *ray, enum axis axis, Camera *cam) {
   ray->perp = perp;
 }
 static void debug_draw(Vec2 hit, Color col) {
-  SDL_FRect h = {(float)hit.x - 4, (float)hit.y - 4, 8, 8};
+  float scale = (float)DEBUG_CELL / (float)CELL;
+  float px = (float)hit.x * scale;
+  float py = (float)hit.y * scale;
+
+  SDL_FRect h = {px - 1, py - 1, 2, 2};
   SDL_SetRenderDrawColor(gr, col.r, col.g, col.b, col.a);
   SDL_RenderFillRect(gr, &h);
 }
@@ -387,10 +393,14 @@ static void update_player(Camera *cam) {
 
 static void draw_player(Camera *cam) {
   SDL_SetRenderDrawColor(gr, 200, 200, 200, 255);
+  float scale = (float)DEBUG_CELL / (float)CELL;
   double line_length = 150;
 
-  SDL_FRect p = {(float)(cam->pos.x - (CELL / 8.0)),
-                 (float)(cam->pos.y - (CELL / 8.0)), CELL / 4.0, CELL / 4.0};
+  float px = (float)cam->pos.x * scale;
+  float py = (float)cam->pos.y * scale;
+
+  SDL_FRect p = {(float)(px - (DEBUG_CELL / 4.0)),
+                 (float)(py - (DEBUG_CELL / 4.0)), DEBUG_CELL / 2.0, DEBUG_CELL / 2.0};
 
   SDL_SetRenderDrawColor(gr, 100, 100, 100, 190);
 
@@ -400,9 +410,11 @@ static void draw_player(Camera *cam) {
 
   // dir vector
   SDL_SetRenderDrawColor(gr, 0, 255, 0, 255);
-  SDL_RenderLine(gr, (float)cam->pos.x, (float)cam->pos.y,
-                 (float)cam->pos.x + ((float)(cam->dir.x * line_length)),
-                 (float)cam->pos.y + (float)(cam->dir.y * line_length));
+
+  float dpx = px + (float)(cam->dir.x * line_length);
+  float dpy = py + (float)(cam->dir.y * line_length);
+
+  SDL_RenderLine(gr, px, py, dpx, dpy);
 }
 
 static void handle_player_input(Input *input) {
@@ -480,7 +492,14 @@ static void handle_debug_option_input(SDL_Event *e) {
     }
   }
 }
-static void render(Camera *cam) {
+static void text(TTF_TextEngine *engine, TTF_Font *font, float x, float y,
+                 const char *str) {
+  TTF_Text *t = TTF_CreateText(engine, font, str, 0);
+  TTF_DrawRendererText(t, x, y);
+  TTF_DestroyText(t);
+}
+
+static void render(Camera *cam, TTF_TextEngine *text_engine, TTF_Font *font) {
   SDL_SetRenderDrawColor(gr, 30, 60, 120, 255);
   SDL_RenderClear(gr);
   if (g_debug == 1) {
@@ -491,6 +510,15 @@ static void render(Camera *cam) {
     draw_background();
   }
   cast_rays(cam);
+
+  text(text_engine, font, 10, 10, g_debug ? "debug: ON" : "debug: OFF");
+
+  text(text_engine, font, 10, 30,
+       g_debug_single_ray ? "single ray: ON" : "single ray: OFF");
+
+  text(text_engine, font, 10, 50,
+       g_atan_correction ? "atan fisheye correction: ON"
+                         : "atan correction: OFF");
 
   SDL_RenderPresent(gr);
 }
@@ -503,6 +531,11 @@ int main(int argc, char *argv[]) {
   SDL_Window *window =
       SDL_CreateWindow("raycaster", SCREEN_WIDTH, SCREEN_HEIGHT, 0);
   gr = SDL_CreateRenderer(window, NULL);
+
+  TTF_Init();
+  TTF_Font *font = TTF_OpenFont("assets/JetBrainsMono-Regular.ttf", 18);
+  TTF_TextEngine *text_engine = TTF_CreateRendererTextEngine(gr);
+
   bool running = true;
   Camera cam = camera_default();
 
@@ -539,13 +572,17 @@ int main(int argc, char *argv[]) {
       tick(&cam, &input);
     }
 
-    render(&cam);
+    render(&cam, text_engine, font);
 
     Uint64 elapsed = SDL_GetTicksNS() - frame_start;
     if (elapsed < FRAME_NS) {
       SDL_DelayPrecise(FRAME_NS - elapsed);
     }
   }
+
+  TTF_DestroyRendererTextEngine(text_engine);
+  TTF_CloseFont(font);
+  TTF_Quit();
 
   SDL_DestroyRenderer(gr);
   SDL_DestroyWindow(window);

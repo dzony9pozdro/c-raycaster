@@ -1,6 +1,6 @@
-CFLAGS = -Wall -Wextra -Wshadow -Wconversion -std=c23 -g $(shell pkg-config --cflags sdl3)
+CFLAGS = -Wall -Wextra -Wshadow -Wconversion -std=gnu23 -g $(shell pkg-config --cflags sdl3 sdl3-ttf)
 CFLAGS += -fsanitize=address,undefined -fno-omit-frame-pointer
-LDLIBS = $(shell pkg-config --libs sdl3) -lm
+LDLIBS = $(shell pkg-config --libs sdl3 sdl3-ttf) -lm
 LDFLAGS = -fsanitize=address,undefined
 
 ray: main.c
