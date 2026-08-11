@@ -518,7 +518,7 @@ static void render(Camera *cam, TTF_TextEngine *text_engine, TTF_Font *font) {
 
   text(text_engine, font, 10, 50,
        g_atan_correction ? "atan fisheye correction: ON"
-                         : "atan correction: OFF");
+                         : "atan fisheye correction: OFF");
 
   SDL_RenderPresent(gr);
 }
