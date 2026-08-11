@@ -207,7 +207,7 @@ static void debug_draw(Vec2 hit, Color col) {
   float px = (float)hit.x * scale;
   float py = (float)hit.y * scale;
 
-  SDL_FRect h = {px - 1, py - 1, 2, 2};
+  SDL_FRect h = {px - 2, py - 2, 4, 4};
   SDL_SetRenderDrawColor(gr, col.r, col.g, col.b, col.a);
   SDL_RenderFillRect(gr, &h);
 }
