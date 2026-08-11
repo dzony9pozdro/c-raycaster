@@ -125,13 +125,13 @@ static void draw_grid(void) {
 
   for (int row = 0; row < MAP_H; row++) {
     py = DEBUG_CELL * row;
-    SDL_FRect r = {0, (float)py, 30000, 1};
+    SDL_FRect r = {0, (float)py, (MAP_W * DEBUG_CELL), 1};
     SDL_RenderFillRect(gr, &r);
   }
 
   for (int col = 0; col < MAP_W; col++) {
     px = DEBUG_CELL * col;
-    SDL_FRect r = {(float)px, 0, 1, 300000};
+    SDL_FRect r = {(float)px, 0, 1, (MAP_H * DEBUG_CELL)};
     SDL_RenderFillRect(gr, &r);
   }
 }
